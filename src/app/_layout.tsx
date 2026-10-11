@@ -1,18 +1,46 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { Drawer } from 'expo-router/drawer';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { DrawerContentScrollView, DrawerItem } from 'expo-router/drawer';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+const DRAWER_TABS = [
+  { label: 'Overview',  route: '/tabs',            icon: 'grid-outline' },
+  { label: 'Benta',     route: '/tabs/Benta',      icon: 'cart-outline' },
+  { label: 'Inventory', route: '/tabs/Inventory',  icon: 'cube-outline' },
+  { label: 'Utang',     route: '/tabs/Utang',      icon: 'people-outline' },
+  { label: 'Reports',   route: '/tabs/Reports',    icon: 'bar-chart-outline' },
+] ;
 
-SplashScreen.preventAutoHideAsync();
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+function CustomDrawerContent(props: any) {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <DrawerContentScrollView style={{marginTop:100}} {...props}>
+      {DRAWER_TABS.map((tab) => (
+        <DrawerItem
+          key={tab.route}
+          label={tab.label}
+          icon={({size,color})=> (
+            <Ionicons name={tab.icon as any} size={size} color={color}/>
+          )}
+          onPress={() => {
+            router.navigate(tab.route as any);
+            props.navigation.closeDrawer();
+          }}
+        />
+      ))}
+    </DrawerContentScrollView>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Drawer
+        drawerContent={(props) => <CustomDrawerContent {...props} />}
+        screenOptions={{ headerShown: true }}
+      >
+        <Drawer.Screen name="tabs" options={{ title: 'DASHBOARD' }} />
+      </Drawer>
+    </GestureHandlerRootView>
   );
 }
