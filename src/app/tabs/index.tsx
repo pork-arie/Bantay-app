@@ -1,13 +1,24 @@
-import { Text, View, StyleSheet } from "react-native";
+import { TouchableOpacity,Text, View, StyleSheet, Pressable } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
+import { useRouter } from "expo-router";
 
 export default function Index() {
+
+  const router = useRouter()
   return (
     <ScrollView>
-      <View >
-      <Text style={styles.smalltext}>Dashboard</Text>
-      <Text style={styles.bigtext}>Name san User ddi</Text>
-    </View>
+      <View style={styles.cheader} >
+      <View>
+         <Text style={styles.smalltext}>Dashboard</Text>
+        <Text style={styles.bigtext}>Name san User ddi</Text>
+      </View>
+
+      <View>
+        <TouchableOpacity>
+          <Text style={{marginLeft:70,width:50,marginTop:40,borderRadius:30,backgroundColor:'grey',textAlign:'center',color:'white',padding:10}} onPress={() => alert('working')}>+</Text>
+        </TouchableOpacity>
+      </View>
+      </View>
 
     <View style={styles.grid}>
       <View style={styles.row}>
@@ -22,6 +33,20 @@ export default function Index() {
 
     <View style={styles.g1box} >
       <View style={styles.gbox}><Text style={{textAlign:"center",fontSize:30}}>graph ine</Text></View>
+    </View>
+
+    <View style={styles.g1box}>
+      <ScrollView style={styles.c1}>
+        <View style={styles.c1a}>
+          <Text style={styles.Text}>Todays activity</Text>
+          <Text style={styles.Text}>latest transaction</Text>
+
+          <View>
+            <Text style={styles.Text}>Flatlist ddi para mag render sa listahan</Text>
+            <Pressable onPress={() => router.push("/tabs/Inventory")} style={styles.Button}><Text >View all</Text></Pressable>
+            </View>
+        </View>
+      </ScrollView>
     </View>
     </ScrollView>
   );
@@ -77,6 +102,40 @@ const styles = StyleSheet.create({
 
   g1box:{
    alignContent:'center',
-   padding:30
+   padding:30,
+  
+  },
+  cheader:{
+    flexDirection:'row',
+    alignItems:'center'
+  }
+  ,
+  c1:{
+    backgroundColor:"grey",
+    height:400,
+    borderRadius:40,
+    
+  }
+  ,
+  c1a:{
+    justifyContent:'center',
+    paddingLeft:40,
+    paddingTop:30,
+  },
+  Text:{
+    color:'white',
+  },
+  Button:{
+    backgroundColor:"green",
+    textAlign:'center',
+    alignItems:'center',
+    justifyContent:'center',
+    
+     width:100,
+    height:40,
+    color:"white",
+
+    borderRadius:20,
+    
   }
 });
