@@ -109,9 +109,6 @@ export const en = {
   'Kulang pa ng {amount}.': 'Short by {amount}.',
   'Pumili o magdagdag ng customer para sa utang.': 'Pick or add a customer for credit.',
   'Ilagay ang pangalan ng bagong customer.': "Enter the new customer's name.",
-  'Hindi kilalang barcode': 'Unknown barcode',
-  'Walang produktong naka-link sa {code}. I-link ito sa Inventory.':
-    'No product is linked to {code}. Link it in Inventory.',
 
   // Barcode scanner
   'Kailangan ng camera para ma-scan ang barcode.': 'Camera access is needed to scan barcodes.',
@@ -279,4 +276,19 @@ export const en = {
   '{pct}% ng benta ay tubo': '{pct}% of sales is profit',
   'Kung maubos ang lahat ng paninda mo ngayon: benta {revenue}, tubo {profit}.':
     'If all your current stock sells: sales {revenue}, profit {profit}.',
+
+  // Scanning
+  'Mag-scan nang sunod-sunod. Pindutin ang Tapos kapag kumpleto na.':
+    'Scan items one after another. Tap Done when finished.',
+  'Hindi kilala: {code}': 'Unknown: {code}',
+  'Kulang na ang stock ng {name}': 'Not enough stock of {name}',
+  'Idagdag sa Inventory': 'Add to Inventory',
+  '{count} item sa cart': '{count} item(s) in cart',
+  'Tapos — bayaran': 'Done — checkout',
+  'Tapos': 'Done',
+  'Nasa listahan na': 'Already listed',
+  'Naka-link na ang barcode na ito sa {name}.': 'This barcode is already linked to {name}.',
+  'Hinahanap ang produkto online...': 'Looking up the product online...',
+  'Nakita! Pakitingnan ang pangalan at ilagay ang presyo.': 'Found it! Check the name and enter the price.',
+  'Hindi nakita online. I-type ang detalye.': 'Not found online. Type in the details.',
 } as const;

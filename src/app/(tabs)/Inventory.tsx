@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Pressable,
@@ -10,6 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import BarcodeScanner from "@/components/BarcodeScanner";
@@ -17,6 +19,7 @@ import BottomSheet from "@/components/BottomSheet";
 import { avatarTints, initials, peso, radius, shadow, type Colors } from "@/constants/theme";
 import { CATEGORIES, type Category, type Product } from "@/data/sample";
 import { useT, type TKey } from "@/i18n";
+import { lookupBarcode } from "@/lib/productLookup";
 import { success } from "@/store/haptics";
 import { daysLeft, formatStock, isLowStock, restockList } from "@/store/selectors";
 import { useStore } from "@/store/StoreProvider";
@@ -52,7 +55,7 @@ export default function Inventory() {
   const t = useT();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { products, sales, settings, restock, addProduct, updateProduct } = useStore();
+  const { products, sales, settings, ready, restock, addProduct, updateProduct } = useStore();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("Lahat");
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -64,6 +67,20 @@ export default function Inventory() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [formCategory, setFormCategory] = useState<Product["category"]>("Inumin");
   const [hasPack, setHasPack] = useState(false);
+  const [lookup, setLookup] = useState<"idle" | "loading" | "found" | "notfound">("idle");
+  // Benta sends unknown barcodes here so they can be added right away.
+  // `at` makes each hand-off unique, so the same code can be sent twice.
+  const params = useLocalSearchParams<{ barcode?: string; at?: string }>();
+  const [handledParam, setHandledParam] = useState("");
+
+  useEffect(() => {
+    const key = `${params.barcode}:${params.at}`;
+    // Wait for saved products to load, so a known barcode isn't treated as new.
+    if (ready && params.barcode && key !== handledParam) {
+      setHandledParam(key);
+      handleNewBarcode(params.barcode);
+    }
+  }, [ready, params.barcode, params.at]);
 
   const sheetProduct =
     sheet?.type === "restock" ? products.find((p) => p.id === sheet.productId) : undefined;
@@ -107,7 +124,27 @@ export default function Inventory() {
     setForm({ ...EMPTY_FORM, barcode });
     setFormCategory("Inumin");
     setHasPack(false);
+    setLookup("idle");
     setSheet({ type: "add" });
+    if (barcode) fillFromBarcode(barcode);
+  }
+
+  /** Fills in the name (and category when it can tell) from the online product database. */
+  async function fillFromBarcode(code: string) {
+    setLookup("loading");
+    const result = await lookupBarcode(code);
+    setLookup(result ? "found" : "notfound");
+    if (!result) return;
+    // Don't overwrite anything the user already typed, or a newer scan.
+    setForm((f) => (f.barcode === code && f.name === "" ? { ...f, name: result.name } : f));
+    if (result.category) setFormCategory(result.category);
+  }
+
+  /** A scanned code: open the product if we know it, otherwise start adding it. */
+  function handleNewBarcode(code: string) {
+    const found = products.find((p) => p.barcode === code);
+    if (found) openRestock(found);
+    else openAdd(code);
   }
 
   function saveProduct() {
@@ -144,7 +181,14 @@ export default function Inventory() {
     const target = scanTarget;
     setScanTarget(null);
     if (target === "add") {
+      const existing = products.find((p) => p.barcode === code);
+      if (existing) {
+        Alert.alert(t("Nasa listahan na"), t("Naka-link na ang barcode na ito sa {name}.", { name: existing.name }));
+        openRestock(existing);
+        return;
+      }
       setForm((f) => ({ ...f, barcode: code }));
+      fillFromBarcode(code);
       return;
     }
     if (target === "link" && sheetProduct) {
@@ -152,9 +196,7 @@ export default function Inventory() {
       success();
       return;
     }
-    const found = products.find((p) => p.barcode === code);
-    if (found) openRestock(found);
-    else openAdd(code);
+    handleNewBarcode(code);
   }
 
   function shareRestockList() {
@@ -434,6 +476,44 @@ export default function Inventory() {
         onClose={() => setSheet(null)}
       >
         <ScrollView keyboardShouldPersistTaps="handled">
+          <Text style={styles.label}>{t("Barcode (optional)")}</Text>
+          <View style={styles.searchRow}>
+            <TextInput
+              value={form.barcode}
+              onChangeText={(barcode) => setForm({ ...form, barcode })}
+              onEndEditing={() => {
+                if (form.barcode.trim() && form.name === "") fillFromBarcode(form.barcode.trim());
+              }}
+              placeholder="4800000000000"
+              placeholderTextColor={colors.muted}
+              keyboardType="number-pad"
+              style={[styles.input, { flex: 1 }]}
+            />
+            <Pressable onPress={() => setScanTarget("add")} style={styles.scanBtn}>
+              <Ionicons name="barcode-outline" size={22} color="#fff" />
+            </Pressable>
+          </View>
+          {lookup !== "idle" && (
+            <View style={styles.lookupRow}>
+              {lookup === "loading" ? (
+                <ActivityIndicator size="small" color={colors.gcash} />
+              ) : (
+                <Ionicons
+                  name={lookup === "found" ? "checkmark-circle" : "information-circle-outline"}
+                  size={16}
+                  color={lookup === "found" ? colors.primary : colors.muted}
+                />
+              )}
+              <Text style={styles.lookupText}>
+                {lookup === "loading"
+                  ? t("Hinahanap ang produkto online...")
+                  : lookup === "found"
+                    ? t("Nakita! Pakitingnan ang pangalan at ilagay ang presyo.")
+                    : t("Hindi nakita online. I-type ang detalye.")}
+              </Text>
+            </View>
+          )}
+
           <Text style={styles.label}>{t("Pangalan")}</Text>
           <TextInput
             value={form.name}
@@ -549,21 +629,6 @@ export default function Inventory() {
               </View>
             </View>
           )}
-
-          <Text style={styles.label}>{t("Barcode (optional)")}</Text>
-          <View style={styles.searchRow}>
-            <TextInput
-              value={form.barcode}
-              onChangeText={(barcode) => setForm({ ...form, barcode })}
-              placeholder="4800000000000"
-              placeholderTextColor={colors.muted}
-              keyboardType="number-pad"
-              style={[styles.input, { flex: 1 }]}
-            />
-            <Pressable onPress={() => setScanTarget("add")} style={styles.scanBtn}>
-              <Ionicons name="barcode-outline" size={22} color="#fff" />
-            </Pressable>
-          </View>
 
           <Text style={styles.label}>{t("Kategorya")}</Text>
           <View style={styles.quickRow}>
@@ -895,6 +960,17 @@ const createStyles = (colors: Colors) =>
       paddingHorizontal: 14,
       fontSize: 15,
       color: colors.text,
+    },
+    lookupRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginTop: 8,
+    },
+    lookupText: {
+      flex: 1,
+      fontSize: 12,
+      color: colors.muted,
     },
     formRow: {
       flexDirection: "row",

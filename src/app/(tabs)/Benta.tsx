@@ -10,9 +10,10 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-import BarcodeScanner from "@/components/BarcodeScanner";
+import BarcodeScanner, { type ScanFeedback } from "@/components/BarcodeScanner";
 import BottomSheet from "@/components/BottomSheet";
 import { peso, radius, shadow, type Colors } from "@/constants/theme";
 import {
@@ -43,12 +44,15 @@ export default function Benta() {
   const t = useT();
   const { colors, pay } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const router = useRouter();
   const { products, debtors, settings, checkout } = useStore();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<Category>("Lahat");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cartOpen, setCartOpen] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [scanFeedback, setScanFeedback] = useState<ScanFeedback | null>(null);
+  const [unknownCode, setUnknownCode] = useState<string | null>(null);
   const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [received, setReceived] = useState("");
   const [gcashRef, setGcashRef] = useState("");
@@ -92,11 +96,12 @@ export default function Benta() {
     return (from[cartKey(p.id, "tingi")] ?? 0) + packs * (p.pack?.size ?? 0);
   }
 
+  /** Returns false when there isn't enough stock to add more. */
   function changeQty(product: Product, unit: SellUnit, delta: number) {
     const size = unit === "pack" && product.pack ? product.pack.size : 1;
     if (delta > 0 && piecesInCart(product) + size > product.stock) {
       warning();
-      return;
+      return false;
     }
     tap();
     setCart((prev) => {
@@ -107,20 +112,40 @@ export default function Benta() {
       else updated[key] = next;
       return updated;
     });
+    return true;
   }
 
+  function openScanner() {
+    setScanFeedback(null);
+    setUnknownCode(null);
+    setScanning(true);
+  }
+
+  /** The scanner stays open, so each scan adds one piece and shows what happened. */
   function onScanned(code: string) {
-    setScanning(false);
     const product = products.find((p) => p.barcode === code);
     if (!product) {
       warning();
-      Alert.alert(
-        t("Hindi kilalang barcode"),
-        t("Walang produktong naka-link sa {code}. I-link ito sa Inventory.", { code }),
-      );
+      setUnknownCode(code);
+      setScanFeedback({ text: t("Hindi kilala: {code}", { code }), tone: "warn" });
       return;
     }
-    changeQty(product, "tingi", 1);
+    setUnknownCode(null);
+    if (!changeQty(product, "tingi", 1)) {
+      setScanFeedback({ text: t("Kulang na ang stock ng {name}", { name: product.name }), tone: "warn" });
+      return;
+    }
+    const inCart = (cart[cartKey(product.id, "tingi")] ?? 0) + 1;
+    setScanFeedback({ text: `${product.name} ×${inCart} · ${peso(product.price)}`, tone: "ok" });
+  }
+
+  function addUnknownToInventory() {
+    const code = unknownCode;
+    setScanning(false);
+    setUnknownCode(null);
+    if (code) {
+      router.navigate({ pathname: "/(tabs)/Inventory", params: { barcode: code, at: String(Date.now()) } });
+    }
   }
 
   function resetSale() {
@@ -273,7 +298,7 @@ export default function Benta() {
             )}
           </View>
           <Pressable
-            onPress={() => setScanning(true)}
+            onPress={openScanner}
             style={({ pressed }) => [styles.scanBtn, pressed && styles.pressed]}
             accessibilityLabel={t("I-scan ang barcode")}
           >
@@ -620,8 +645,39 @@ export default function Benta() {
 
       <BarcodeScanner
         visible={scanning}
+        continuous
         onClose={() => setScanning(false)}
         onScanned={onScanned}
+        feedback={scanFeedback}
+        footer={
+          <View style={styles.scanFooter}>
+            {unknownCode && (
+              <Pressable onPress={addUnknownToInventory} style={styles.scanAddBtn}>
+                <Ionicons name="add-circle-outline" size={18} color="#111827" />
+                <Text style={styles.scanAddText}>{t("Idagdag sa Inventory")}</Text>
+              </Pressable>
+            )}
+            <View style={styles.scanBar}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.scanBarLabel}>
+                  {t("{count} item sa cart", { count: itemCount })}
+                </Text>
+                <Text style={styles.scanBarTotal}>{peso(total)}</Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  setScanning(false);
+                  if (itemCount > 0) setCartOpen(true);
+                }}
+                style={styles.scanDone}
+              >
+                <Text style={styles.scanDoneText}>
+                  {itemCount > 0 ? t("Tapos — bayaran") : t("Tapos")}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        }
       />
     </View>
   );
@@ -1011,6 +1067,49 @@ const createStyles = (colors: Colors) =>
     secondaryText: {
       fontWeight: "700",
       color: colors.text,
+    },
+    scanFooter: {
+      gap: 10,
+    },
+    scanAddBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      backgroundColor: "#fff",
+      borderRadius: radius.md,
+      paddingVertical: 12,
+    },
+    scanAddText: {
+      color: "#111827",
+      fontWeight: "700",
+    },
+    scanBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      backgroundColor: "rgba(17,24,39,0.92)",
+      borderRadius: radius.lg,
+      padding: 14,
+    },
+    scanBarLabel: {
+      color: "#9CA3AF",
+      fontSize: 12,
+    },
+    scanBarTotal: {
+      color: "#fff",
+      fontSize: 20,
+      fontWeight: "700",
+    },
+    scanDone: {
+      backgroundColor: "#16A34A",
+      borderRadius: radius.md,
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+    },
+    scanDoneText: {
+      color: "#fff",
+      fontWeight: "700",
     },
     newSaleBtn: {
       flex: 2,
