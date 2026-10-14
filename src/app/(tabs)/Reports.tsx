@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import BottomSheet from "@/components/BottomSheet";
+import ForecastCard from "@/components/ForecastCard";
 import { peso, radius, shadow, type Colors } from "@/constants/theme";
 import type { PaymentMethod, Period } from "@/data/sample";
 import { PAYMENT_KEYS, useT, type TKey } from "@/i18n";
@@ -28,6 +30,7 @@ const METHODS: PaymentMethod[] = ["cash", "gcash", "utang"];
 
 export default function Reports() {
   const t = useT();
+  const router = useRouter();
   const { colors, pay } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { sales, debtors, settings, closings, closeDay } = useStore();
@@ -160,6 +163,21 @@ export default function Reports() {
         <Ionicons name="chevron-forward" size={18} color={colors.muted} />
       </Pressable>
 
+      {/* Sales history */}
+      <Pressable
+        onPress={() => router.navigate("/history")}
+        style={({ pressed }) => [styles.closingCard, pressed && styles.pressed]}
+      >
+        <View style={[styles.closingIcon, { backgroundColor: colors.blueSoft }]}>
+          <Ionicons name="calendar-outline" size={20} color={colors.blue} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.closingTitle}>{t("Kasaysayan ng benta")}</Text>
+          <Text style={styles.closingSub}>{t("Tingnan ang benta bawat buwan at bawat araw")}</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+      </Pressable>
+
       {/* KPIs */}
       <View style={styles.kpiRow}>
         <View style={styles.kpi}>
@@ -173,6 +191,8 @@ export default function Reports() {
           <Text style={styles.kpiLabel}>{t("Average kada benta")}</Text>
         </View>
       </View>
+
+      <ForecastCard />
 
       {/* Trend */}
       <View style={styles.section}>

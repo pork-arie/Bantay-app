@@ -206,8 +206,9 @@ export function seedDebtors(): Debtor[] {
 }
 
 /**
- * Generates 30 days of believable past sales so Reports and the Dashboard
- * have something to show before the store records its own.
+ * Generates ~4 months of believable past sales (busier weekends, slow growth)
+ * so Reports, History and the forecast have something to show before the
+ * store records its own.
  */
 export function seedSales(products: Product[]): Sale[] {
   let seed = 42;
@@ -218,8 +219,11 @@ export function seedSales(products: Product[]): Sale[] {
 
   const sales: Sale[] = [];
   const now = new Date();
-  for (let day = 29; day >= 0; day--) {
-    const count = 8 + Math.floor(rand() * 10);
+  for (let day = 119; day >= 0; day--) {
+    const weekday = new Date(now.getTime() - day * 86400000).getDay();
+    const weekend = weekday === 0 || weekday === 6 ? 5 : 0;
+    const growth = Math.round((119 - day) / 30);
+    const count = 6 + weekend + growth + Math.floor(rand() * 8);
     for (let i = 0; i < count; i++) {
       const date = new Date(now);
       date.setDate(now.getDate() - day);

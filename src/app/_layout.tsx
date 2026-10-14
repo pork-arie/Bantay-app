@@ -18,6 +18,7 @@ const DRAWER_TABS: { label: TKey; route: string; segment: string; icon: string }
   { label: 'Inventory', route: '/(tabs)/Inventory', segment: 'Inventory', icon: 'cube-outline' },
   { label: 'Utang',     route: '/(tabs)/Utang',     segment: 'Utang',     icon: 'people-outline' },
   { label: 'Reports',   route: '/(tabs)/Reports',   segment: 'Reports',   icon: 'bar-chart-outline' },
+  { label: 'Kasaysayan ng benta', route: '/history',        segment: 'history',   icon: 'calendar-outline' },
   { label: 'Profile at Settings', route: '/settings', segment: 'settings', icon: 'settings-outline' },
 ];
 
@@ -96,6 +97,7 @@ function AppDrawer() {
         }}
       >
         <Drawer.Screen name="(tabs)" />
+        <Drawer.Screen name="history" />
         <Drawer.Screen name="settings" />
       </Drawer>
     </>

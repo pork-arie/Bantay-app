@@ -244,4 +244,39 @@ export const en = {
     'All sales, credit and products will be erased and replaced with sample data.',
   'I-reset': 'Reset',
   'I-reset sa sample data': 'Reset to sample data',
+
+  // History
+  'Kasaysayan ng benta': 'Sales history',
+  'Tingnan ang benta bawat buwan at bawat araw': 'See sales for each month and day',
+  'Pumili ng buwan, tapos pindutin ang araw': 'Pick a month, then tap a day',
+  'Huling 6 na buwan': 'Last 6 months',
+  '{pct}% kumpara sa {month}': '{pct}% vs {month}',
+  'Average kada araw': 'Average per day',
+  'Pinakamalakas na araw: {day} ({amount})': 'Best day: {day} ({amount})',
+  'Bawat araw': 'Each day',
+  '{count} transaksyon': '{count} transactions',
+  'Walang benta': 'No sales',
+
+  // Forecast
+  'Hula ng kita': 'Earnings forecast',
+  'Batay sa benta nitong nakaraang 4 na linggo': 'Based on sales in the last 4 weeks',
+  'Susunod na 7 araw': 'Next 7 days',
+  'Susunod na 30 araw': 'Next 30 days',
+  'Tantiyang benta ngayong buwan': 'Expected sales this month',
+  '{soFar} na ang nabenta · tubo ~{profit}': '{soFar} sold so far · profit ~{profit}',
+  'Tumaas ng {pct}% ang benta nitong 2 linggo.': 'Sales went up {pct}% in the last 2 weeks.',
+  'Bumaba ng {pct}% ang benta nitong 2 linggo.': 'Sales went down {pct}% in the last 2 weeks.',
+  'Pinakamalakas tuwing {day} (~{amount}). Siguraduhing puno ang stock.':
+    'Busiest on {day} (~{amount}). Make sure you are fully stocked.',
+  'Kailangan ng ilang araw ng benta para makagawa ng hula.': 'A few days of sales are needed to make a forecast.',
+  'Kalkulador ng kita': 'Profit calculator',
+  'Kung mabenta ko ang...': 'If I sell...',
+  'Tingi': 'Per piece',
+  'Ilan?': 'How many?',
+  'Lahat ng stock ({count})': 'All stock ({count})',
+  'Puhunan': 'Cost',
+  'Kikitain mo': 'You earn',
+  '{pct}% ng benta ay tubo': '{pct}% of sales is profit',
+  'Kung maubos ang lahat ng paninda mo ngayon: benta {revenue}, tubo {profit}.':
+    'If all your current stock sells: sales {revenue}, profit {profit}.',
 } as const;
