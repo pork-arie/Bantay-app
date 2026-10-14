@@ -1,56 +1,45 @@
-# Welcome to your Expo app 👋
+# Bantay
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**Offline point-of-sale, inventory and utang tracker for sari-sari stores.**
 
-## Get started
+Bantay ("to watch over") helps small Filipino stores sell, track stock and credit, and
+keep honest records — all on the owner's phone, with no Wi-Fi, account or server needed.
 
-1. Install dependencies
+## Features
 
-   ```bash
-   npm install
-   ```
+- **Benta (POS):** tap or scan to sell, tingi (per piece) and pack/tali prices, Cash /
+  GCash / Utang, change (sukli) computation, credit-limit warnings.
+- **Receipts:** numbered receipts with exact time, print (58 mm) or share as PDF,
+  void with reason (owner PIN), "not an official receipt" notice.
+- **Inventory:** stock in pieces and packs, low-stock alerts, "days left" estimates,
+  restock by pack, shareable shopping list, barcode scanning with online name lookup.
+- **Utang:** customer ledgers, cash or GCash payments, credit limits, reminder messages,
+  printable credit list.
+- **Reports:** sales and profit by day/week/month, payment split, best sellers, earnings
+  forecast, profit calculator, end-of-day cash count, month/day sales history.
+- **Bantay mode:** owner and staff PINs, staff restrictions (no profit, inventory or settings), auto-lock after 5 minutes in the background, activity log of every action.
+- **Offline backup:** one-file backup and restore (Bluetooth, SD card, Messenger…),
+  backup reminders.
+- **Personalization:** light (default) or dark mode, 8 accent colors, Filipino, English or Waray-Waray.
 
-2. Start the app
+## Tech
 
-   ```bash
-   npx expo start
-   ```
+Expo SDK 57 · React Native · Expo Router · TypeScript · expo-sqlite (on-device storage) ·
+expo-camera (barcodes) · expo-print / expo-sharing (receipts, backups) ·
+Open Food Facts (optional product lookup).
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Run it
 
 ```bash
-npm run reset-project
+npm install
+npx expo start          # Expo Go: everything except the barcode camera
+npx expo run:android    # development build with camera, print and file sharing
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Privacy & legal
 
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+All data stays on the device; the developer collects nothing. See
+[Privacy Policy](docs/privacy-policy.md), [Terms of Use](docs/terms-of-use.md) and the
+[store release checklist](docs/store-release-checklist.md) (Google Play Data safety,
+App Store privacy, BIR and Data Privacy Act notes). The same text is in the app under
+**Privacy & Terms**.
