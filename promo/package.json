@@ -8,7 +8,8 @@
     "render:vertical": "remotion render BantayPromo out/bantay-promo-vertical.mp4",
     "render:landscape": "remotion render BantayPromoLandscape out/bantay-promo-landscape.mp4",
     "voice": "python3 scripts/make-voice.py kokoro-v1.0.onnx voices-v1.0.bin",
-    "pics": "for i in 0 1 2 3 4; do remotion still PromoShot images/bantay-$((i+1)).png --props=\"{\\\"index\\\":$i}\"; done"
+    "pics": "for i in 0 1 2 3 4; do remotion still PromoShot images/bantay-$((i+1)).png --props=\"{\\\"index\\\":$i}\"; done",
+    "pics:landscape": "for i in 0 1 2 3 4 5; do n=$((i+1)); [ $i = 5 ] && n=cover; remotion still PromoShotLandscape images/landscape/bantay-$n.png --props=\"{\\\"index\\\":$i}\"; done"
   },
   "dependencies": {
     "@remotion/cli": "4.0.535",

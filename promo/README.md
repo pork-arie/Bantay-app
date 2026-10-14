@@ -19,6 +19,12 @@ npm run render            # writes both videos to out/
 each a real app screen in a phone frame with a short Tagalog headline. Good for the Play Store listing
 (phone screenshots) and social posts. Edit the text in `src/PromoShot.tsx` (`SHOTS`) and run `npm run pics`.
 
+### Landscape (portfolio / website)
+
+`images/landscape/bantay-cover.png` (three phones, for a project banner) and `bantay-1.png` … `bantay-5.png`:
+1920×1080, headline on the left and the phone on the right. Each also has a `.webp` copy, which is much
+smaller and better for websites. Regenerate with `npm run pics:landscape` (`PromoShotLandscape` in `src/PromoShot.tsx`).
+
 ## What's inside
 
 - `src/BantayPromo.tsx`: all scenes. `DEFS` is the timeline; each scene lasts as long as its voice line.
