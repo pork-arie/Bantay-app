@@ -93,6 +93,13 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "description": "Offline point-of-sale, inventory and utang tracker for sari-sari stores."
+    "description": "Offline point-of-sale, inventory and utang tracker for sari-sari stores.",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "20946dad-c26a-4040-b367-7a0c03a4dae9"
+      }
+    },
+    "owner": "anghel18"
   }
 }
