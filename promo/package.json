@@ -1,0 +1,19 @@
+{
+  "name": "bantay-promo",
+  "private": true,
+  "description": "60-second promotional video for Bantay, made with Remotion.",
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render BantayPromo out/bantay-promo.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.535",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.535"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "typescript": "5.9.3"
+  }
+}
