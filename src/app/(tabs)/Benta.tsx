@@ -31,6 +31,7 @@ import {
 import { PAYMENT_KEYS, useT } from "@/i18n";
 import { success, tap, warning } from "@/store/haptics";
 import { balanceOf, formatDate, formatStock, formatTime, isLowStock } from "@/store/selectors";
+import { confirm } from "@/lib/confirm";
 import { useStore } from "@/store/StoreProvider";
 import { useTheme } from "@/store/useTheme";
 
@@ -119,6 +120,29 @@ export default function Benta() {
       return updated;
     });
     return true;
+  }
+
+  /** Takes a whole line out of the cart, whatever its quantity. */
+  function removeLine(product: Product, unit: SellUnit) {
+    tap();
+    const key = cartKey(product.id, unit);
+    const rest = { ...cart };
+    delete rest[key];
+    setCart(rest);
+    if (Object.keys(rest).length === 0) setCartOpen(false);
+  }
+
+  /** For when the customer changes their mind about everything. */
+  async function clearCart() {
+    const yes = await confirm(
+      t("Alisin lahat sa cart?"),
+      t("Mawawala ang {count} item sa cart.", { count: itemCount }),
+      t("Alisin lahat"),
+      t("Huwag"),
+    );
+    if (!yes) return;
+    setCart({});
+    setCartOpen(false);
   }
 
   function openScanner() {
@@ -347,6 +371,15 @@ export default function Benta() {
       {/* Cart & payment */}
       <BottomSheet visible={cartOpen} title={t("Cart")} onClose={() => setCartOpen(false)} animation="fade">
         <ScrollView keyboardShouldPersistTaps="handled">
+          {cartLines.length > 0 && (
+            <View style={styles.cartHeader}>
+              <Text style={styles.cartSub}>{t("{count} item sa cart", { count: itemCount })}</Text>
+              <Pressable onPress={clearCart} hitSlop={8} style={styles.clearBtn}>
+                <Ionicons name="trash-outline" size={15} color={colors.red} />
+                <Text style={styles.clearText}>{t("Alisin lahat")}</Text>
+              </Pressable>
+            </View>
+          )}
           {cartLines.map(({ product, unit, qty }) => {
             const item = saleItem(product, unit, qty);
             const atMax = piecesInCart(product) + item.pieces > product.stock;
@@ -373,6 +406,14 @@ export default function Benta() {
                   </Pressable>
                 </View>
                 <Text style={styles.cartLineTotal}>{peso(item.price * qty)}</Text>
+                <Pressable
+                  onPress={() => removeLine(product, unit)}
+                  hitSlop={8}
+                  accessibilityLabel={t("Alisin")}
+                  style={styles.removeBtn}
+                >
+                  <Ionicons name="close" size={16} color={colors.red} />
+                </Pressable>
               </View>
             );
           })}
@@ -857,10 +898,34 @@ const createStyles = (colors: Colors) =>
       fontSize: 17,
       fontWeight: "700",
     },
+    cartHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 4,
+    },
+    clearBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    clearText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.red,
+    },
+    removeBtn: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.redSoft,
+    },
     cartRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 12,
+      gap: 10,
       paddingVertical: 10,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border,
@@ -895,7 +960,7 @@ const createStyles = (colors: Colors) =>
       color: colors.text,
     },
     cartLineTotal: {
-      width: 80,
+      width: 72,
       textAlign: "right",
       fontWeight: "700",
       color: colors.text,

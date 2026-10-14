@@ -218,10 +218,8 @@ function InventoryScreen() {
       : parseFloat(form.cost) || 0;
   const formPackSize = parseInt(form.packSize, 10) || 0;
   const formPackPrice = parseFloat(form.packPrice) || 0;
-  const pieceLoss = formPrice > 0 && formCost > 0 && formCost >= formPrice;
-  const packLoss = hasPack && formPackSize > 0 && formPackPrice > 0 && formCost * formPackSize >= formPackPrice;
 
-  async function saveProduct() {
+  function saveProduct() {
     const price = formPrice;
     const cost = formCost;
     const packSize = formPackSize;
@@ -240,16 +238,6 @@ function InventoryScreen() {
     if (sameBarcode) {
       Alert.alert(t("Nasa listahan na"), t("Naka-link na ang barcode na ito sa {name}.", { name: sameBarcode.name }));
       return;
-    }
-    // Catch the common mistake of typing a whole box's cost as the cost of one piece.
-    if (pieceLoss || packLoss) {
-      const go = await confirm(
-        t("Malulugi ka"),
-        t("Mas mataas o pareho ang puhunan kaysa presyo ng benta. Tama ba ito?"),
-        t("Oo, i-save"),
-        t("Ayusin"),
-      );
-      if (!go) return;
     }
     const details = {
       name: form.name.trim(),
@@ -717,17 +705,15 @@ function InventoryScreen() {
           )}
 
           {/* Live result so mistakes show right away */}
-          {formPrice > 0 && formCost > 0 && (
-            <View style={[styles.calcBox, pieceLoss && styles.calcBoxBad]}>
+          {formPrice > formCost && formCost > 0 && (
+            <View style={styles.calcBox}>
               {costMode === "box" && (
                 <Text style={styles.calcText}>
                   {t("Puhunan: {cost} kada {unit}", { cost: peso(formCost), unit: unitName })}
                 </Text>
               )}
-              <Text style={[styles.calcMain, { color: pieceLoss ? colors.red : colors.success }]}>
-                {pieceLoss
-                  ? t("Lugi ka ng {amount} kada {unit}", { amount: peso(formCost - formPrice), unit: unitName })
-                  : t("Tubo: {amount} kada {unit}", { amount: peso(formPrice - formCost), unit: unitName })}
+              <Text style={styles.calcMain}>
+                {t("Tubo: {amount} kada {unit}", { amount: peso(formPrice - formCost), unit: unitName })}
               </Text>
             </View>
           )}
@@ -789,14 +775,12 @@ function InventoryScreen() {
                   />
                 </View>
               </View>
-              {formPackSize > 0 && formPackPrice > 0 && formCost > 0 && (
-                <Text style={[styles.hint, { color: packLoss ? colors.red : colors.success }]}>
-                  {packLoss
-                    ? t("Lugi ka sa bawat {pack}.", { pack: form.packName.trim() || "pack" })
-                    : t("Tubo: {amount} kada {pack}", {
-                        amount: peso(formPackPrice - formCost * formPackSize),
-                        pack: form.packName.trim() || "pack",
-                      })}
+              {formPackSize > 0 && formCost > 0 && formPackPrice > formCost * formPackSize && (
+                <Text style={[styles.hint, { color: colors.success }]}>
+                  {t("Tubo: {amount} kada {pack}", {
+                    amount: peso(formPackPrice - formCost * formPackSize),
+                    pack: form.packName.trim() || "pack",
+                  })}
                 </Text>
               )}
             </>
@@ -1244,9 +1228,6 @@ const createStyles = (colors: Colors) =>
       marginTop: 12,
       gap: 2,
     },
-    calcBoxBad: {
-      backgroundColor: colors.redSoft,
-    },
     calcText: {
       fontSize: 13,
       color: colors.text,
@@ -1254,6 +1235,7 @@ const createStyles = (colors: Colors) =>
     calcMain: {
       fontSize: 15,
       fontWeight: "700",
+      color: colors.success,
     },
     toggleRowActive: {
       borderColor: colors.primary,
