@@ -2,7 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-import { colors, peso, radius, shadow } from "@/constants/theme";
+import { avatarTints, colors, initials, peso, radius, shadow } from "@/constants/theme";
 import {
   PRODUCTS,
   TOTAL_UTANG,
@@ -10,21 +10,6 @@ import {
   WEEKLY_SALES,
   isLowStock,
 } from "@/data/sample";
-
-const AVATAR_TINTS = [
-  { bg: "#EFE3D8", fg: "#8A5A3B" },
-  { bg: "#DDEAF2", fg: "#3E6A8A" },
-  { bg: "#E9E6D6", fg: "#6B6438" },
-];
-
-function initials(name: string) {
-  return name
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-}
 
 type StatCardProps = {
   label: string;
@@ -181,7 +166,7 @@ export default function Index() {
           <Text style={styles.sectionSub}>Sapat pa ang lahat ng stock.</Text>
         ) : (
           lowStockItems.slice(0, 3).map((p, i, list) => {
-            const tint = AVATAR_TINTS[i % AVATAR_TINTS.length];
+            const tint = avatarTints[i % avatarTints.length];
             return (
               <View
                 key={p.id}
