@@ -133,8 +133,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
       }
 
+      const lastNo = current.sales.reduce((max, s) => Math.max(max, s.receiptNo ?? 0), 0);
       const sale: Sale = {
         id: newId(),
+        receiptNo: lastNo + 1,
         date: new Date().toISOString(),
         items,
         total,

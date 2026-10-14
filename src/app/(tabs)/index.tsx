@@ -250,7 +250,7 @@ export default function Index() {
             <Text style={styles.sectionSub}>{t("Pinakabagong transaksyon")}</Text>
           </View>
           <Pressable
-            onPress={() => router.navigate("/(tabs)/Reports")}
+            onPress={() => router.navigate("/transactions")}
             style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}
           >
             <Text style={styles.linkText}>{t("Tingnan lahat")}</Text>

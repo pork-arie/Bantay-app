@@ -48,6 +48,8 @@ export type SaleItem = {
 
 export type Sale = {
   id: string;
+  /** Sequential number printed on the receipt (#000123). */
+  receiptNo?: number;
   /** ISO timestamp. */
   date: string;
   items: SaleItem[];
@@ -251,5 +253,7 @@ export function seedSales(products: Product[]): Sale[] {
       });
     }
   }
-  return sales.sort((a, b) => b.date.localeCompare(a.date));
+  // Number receipts oldest first, then return newest first like the rest of the app.
+  sales.sort((a, b) => a.date.localeCompare(b.date)).forEach((s, i) => (s.receiptNo = i + 1));
+  return sales.reverse();
 }

@@ -291,4 +291,17 @@ export const en = {
   'Hinahanap ang produkto online...': 'Looking up the product online...',
   'Nakita! Pakitingnan ang pangalan at ilagay ang presyo.': 'Found it! Check the name and enter the price.',
   'Hindi nakita online. I-type ang detalye.': 'Not found online. Type in the details.',
+
+  // Transactions & receipts
+  'Mga transaksyon': 'Transactions',
+  'Lahat ng benta na may oras at numero ng resibo': 'Every sale with its time and receipt number',
+  'Resibo #, customer, produkto o GCash ref': 'Receipt #, customer, product or GCash ref',
+  'Kahapon': 'Yesterday',
+  '7 araw': '7 days',
+  '30 araw': '30 days',
+  'Lahat ng bayad': 'All payments',
+  'Walang transaksyong tugma': 'No matching transactions',
+  'I-print': 'Print',
+  'Hindi natuloy': "Didn't go through",
+  'Hindi na-print o na-share ang resibo. Subukan ulit.': "The receipt wasn't printed or shared. Try again.",
 } as const;

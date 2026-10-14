@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import BarcodeScanner, { type ScanFeedback } from "@/components/BarcodeScanner";
 import BottomSheet from "@/components/BottomSheet";
+import ReceiptSheet from "@/components/ReceiptSheet";
 import { peso, radius, shadow, type Colors } from "@/constants/theme";
 import {
   CATEGORIES,
@@ -188,33 +189,6 @@ export default function Benta() {
     setReceipt(sale);
   }
 
-  function shareReceipt(sale: Sale) {
-    const lines = [
-      settings.storeName || "Bantay Store",
-      ...(settings.storeAddress ? [settings.storeAddress] : []),
-      ...(settings.ownerPhone ? [settings.ownerPhone] : []),
-      `${formatDate(sale.date, settings.language)} · ${formatTime(sale.date)}`,
-      "------------------------",
-      ...sale.items.map(
-        (it) => `${it.qty} ${it.unitName} ${it.name}  ${peso(it.price * it.qty)}`,
-      ),
-      "------------------------",
-      `TOTAL: ${peso(sale.total)}`,
-      `${t("Bayad")}: ${t(PAYMENT_KEYS[sale.payment])}`,
-      ...(sale.cashReceived !== undefined
-        ? [
-            `${t("Natanggap")}: ${peso(sale.cashReceived)}`,
-            `${t("Sukli")}: ${peso(sale.cashReceived - sale.total)}`,
-          ]
-        : []),
-      ...(sale.gcashRef ? [`GCash Ref: ${sale.gcashRef}`] : []),
-      ...(sale.customerName ? [`${t("Customer")}: ${sale.customerName}`] : []),
-      "",
-      t("Salamat po! 🙏"),
-    ];
-    Share.share({ message: lines.join("\n") });
-  }
-
   function renderProduct({ item }: { item: Product }) {
     const tingiQty = cart[cartKey(item.id, "tingi")] ?? 0;
     const packQty = cart[cartKey(item.id, "pack")] ?? 0;
@@ -280,7 +254,16 @@ export default function Benta() {
     <View style={styles.screen}>
       {/* Search */}
       <View style={styles.top}>
-        <Text style={styles.title}>{t("Bagong Benta")}</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>{t("Bagong Benta")}</Text>
+          <Pressable
+            onPress={() => router.navigate("/transactions")}
+            style={({ pressed }) => [styles.historyBtn, pressed && styles.pressed]}
+          >
+            <Ionicons name="receipt-outline" size={18} color={colors.text} />
+            <Text style={styles.historyText}>{t("Mga transaksyon")}</Text>
+          </Pressable>
+        </View>
         <View style={styles.searchRow}>
           <View style={styles.search}>
             <Ionicons name="search" size={18} color={colors.muted} />
@@ -592,56 +575,13 @@ export default function Benta() {
       </BottomSheet>
 
       {/* Receipt */}
-      <BottomSheet visible={receipt !== null} title={t("Resibo")} onClose={() => setReceipt(null)}>
-        {receipt && (
-          <View>
-            <View style={styles.receiptCheck}>
-              <Ionicons name="checkmark-circle" size={48} color={colors.primary} />
-              <Text style={styles.receiptTotal}>{peso(receipt.total)}</Text>
-              <Text style={styles.cartSub}>
-                {t(PAYMENT_KEYS[receipt.payment])} · {formatTime(receipt.date)}
-              </Text>
-            </View>
-            {receipt.items.map((it) => (
-              <View key={`${it.productId}:${it.unit}`} style={styles.receiptRow}>
-                <Text style={styles.receiptItem}>
-                  {it.qty} {it.unitName} · {it.name}
-                </Text>
-                <Text style={styles.receiptItem}>{peso(it.price * it.qty)}</Text>
-              </View>
-            ))}
-            {receipt.cashReceived !== undefined && (
-              <View style={[styles.receiptRow, styles.receiptDivider]}>
-                <Text style={styles.receiptStrong}>{t("Sukli")}</Text>
-                <Text style={[styles.receiptStrong, { color: colors.primary }]}>
-                  {peso(receipt.cashReceived - receipt.total)}
-                </Text>
-              </View>
-            )}
-            {receipt.gcashRef && (
-              <View style={[styles.receiptRow, styles.receiptDivider]}>
-                <Text style={styles.receiptItem}>GCash Ref</Text>
-                <Text style={styles.receiptItem}>{receipt.gcashRef}</Text>
-              </View>
-            )}
-            {receipt.customerName && (
-              <View style={[styles.receiptRow, styles.receiptDivider]}>
-                <Text style={styles.receiptItem}>{t("Inilista kay")}</Text>
-                <Text style={styles.receiptStrong}>{receipt.customerName}</Text>
-              </View>
-            )}
-            <View style={styles.receiptButtons}>
-              <Pressable onPress={() => shareReceipt(receipt)} style={styles.secondaryBtn}>
-                <Ionicons name="share-outline" size={18} color={colors.text} />
-                <Text style={styles.secondaryText}>{t("I-share")}</Text>
-              </Pressable>
-              <Pressable onPress={() => setReceipt(null)} style={styles.newSaleBtn}>
-                <Text style={styles.checkoutText}>{t("Bagong benta")}</Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
-      </BottomSheet>
+      <ReceiptSheet
+        sale={receipt}
+        justSold
+        onClose={() => setReceipt(null)}
+        primaryLabel={t("Bagong benta")}
+        onPrimary={() => setReceipt(null)}
+      />
 
       <BarcodeScanner
         visible={scanning}
@@ -700,6 +640,27 @@ const createStyles = (colors: Colors) =>
     title: {
       fontSize: 26,
       fontWeight: "700",
+      color: colors.text,
+    },
+    titleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    historyBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    historyText: {
+      fontSize: 13,
+      fontWeight: "600",
       color: colors.text,
     },
     searchRow: {
