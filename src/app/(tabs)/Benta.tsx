@@ -11,10 +11,12 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import Animated, { FadeInDown, SlideInDown, SlideOutDown, ZoomIn } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 
 import BarcodeScanner, { type ScanFeedback } from "@/components/BarcodeScanner";
 import BottomSheet from "@/components/BottomSheet";
+import { PressableScale } from "@/components/motion";
 import ReceiptSheet from "@/components/ReceiptSheet";
 import { peso, radius, shadow, type Colors } from "@/constants/theme";
 import {
@@ -189,7 +191,7 @@ export default function Benta() {
     setReceipt(sale);
   }
 
-  function renderProduct({ item }: { item: Product }) {
+  function renderProduct({ item, index }: { item: Product; index: number }) {
     const tingiQty = cart[cartKey(item.id, "tingi")] ?? 0;
     const packQty = cart[cartKey(item.id, "pack")] ?? 0;
     const remaining = item.stock - piecesInCart(item);
@@ -197,22 +199,19 @@ export default function Benta() {
     const selected = tingiQty + packQty > 0;
 
     return (
-      <View
+      <Animated.View
+        entering={FadeInDown.duration(320).delay(Math.min(index, 8) * 35)}
         style={[
           styles.product,
           selected && styles.productSelected,
           outOfStock && { opacity: 0.5 },
         ]}
       >
-        <Pressable
-          onPress={() => changeQty(item, "tingi", 1)}
-          disabled={remaining < 1}
-          style={({ pressed }) => pressed && styles.pressed}
-        >
+        <PressableScale onPress={() => changeQty(item, "tingi", 1)} disabled={remaining < 1} scaleTo={0.95}>
           {tingiQty > 0 && (
-            <View style={styles.qtyBadge}>
+            <Animated.View key={tingiQty} entering={ZoomIn.springify().damping(12)} style={styles.qtyBadge}>
               <Text style={styles.qtyBadgeText}>{tingiQty}</Text>
-            </View>
+            </Animated.View>
           )}
           <View style={styles.productIcon}>
             <Ionicons name="pricetag-outline" size={20} color={colors.primary} />
@@ -227,7 +226,7 @@ export default function Benta() {
           <Text style={[styles.productStock, isLowStock(item) && { color: colors.orange }]}>
             {outOfStock ? t("Ubos na") : t("{stock} natitira", { stock: formatStock(item) })}
           </Text>
-        </Pressable>
+        </PressableScale>
 
         {item.pack && (
           <Pressable
@@ -246,7 +245,7 @@ export default function Benta() {
             </Text>
           </Pressable>
         )}
-      </View>
+      </Animated.View>
     );
   }
 
@@ -328,16 +327,15 @@ export default function Benta() {
 
       {/* Cart bar */}
       {itemCount > 0 && (
-        <Pressable
-          onPress={() => setCartOpen(true)}
-          style={({ pressed }) => [styles.cartBar, pressed && styles.pressed]}
-        >
-          <View style={styles.cartBarCount}>
-            <Text style={styles.cartBarCountText}>{itemCount}</Text>
-          </View>
-          <Text style={styles.cartBarLabel}>{t("Tingnan ang cart")}</Text>
-          <Text style={styles.cartBarTotal}>{peso(total)}</Text>
-        </Pressable>
+        <Animated.View entering={SlideInDown.springify().damping(18)} exiting={SlideOutDown} style={styles.cartBarWrap}>
+          <PressableScale onPress={() => setCartOpen(true)} style={styles.cartBar}>
+            <Animated.View key={itemCount} entering={ZoomIn.springify()} style={styles.cartBarCount}>
+              <Text style={styles.cartBarCountText}>{itemCount}</Text>
+            </Animated.View>
+            <Text style={styles.cartBarLabel}>{t("Tingnan ang cart")}</Text>
+            <Text style={styles.cartBarTotal}>{peso(total)}</Text>
+          </PressableScale>
+        </Animated.View>
       )}
 
       {/* Cart & payment */}
@@ -813,11 +811,13 @@ const createStyles = (colors: Colors) =>
       color: colors.muted,
       fontSize: 14,
     },
-    cartBar: {
+    cartBarWrap: {
       position: "absolute",
       left: 20,
       right: 20,
       bottom: 20,
+    },
+    cartBar: {
       flexDirection: "row",
       alignItems: "center",
       gap: 12,

@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import BottomSheet from "@/components/BottomSheet";
+import { FadeIn, GrowBar, PressableScale, useCountUp } from "@/components/motion";
 import {
   avatarTints,
   initials,
@@ -40,10 +41,7 @@ type StatCardProps = {
 
 function StatCard({ label, value, icon, color, tint, styles, onPress }: StatCardProps) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-    >
+    <PressableScale onPress={onPress} style={styles.card}>
       <View style={[styles.cardIcon, { backgroundColor: tint }]}>
         <Ionicons name={icon} size={20} color={color} />
       </View>
@@ -51,7 +49,7 @@ function StatCard({ label, value, icon, color, tint, styles, onPress }: StatCard
         {value}
       </Text>
       <Text style={styles.cardLabel}>{label}</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -60,8 +58,20 @@ export default function Index() {
   const t = useT();
   const { colors, pay } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { products, sales, debtors, settings, ready, updateSettings, meta, activity, acceptTerms, startFresh, can } =
-    useStore();
+  const {
+    products,
+    sales,
+    debtors,
+    settings,
+    ready,
+    updateSettings,
+    meta,
+    activity,
+    acceptTerms,
+    startFresh,
+    can,
+    storageError,
+  } = useStore();
   const [setupDismissed, setSetupDismissed] = useState(false);
   const [setup, setSetup] = useState({ storeName: "", ownerName: "", gcashNumber: "" });
   const [agreed, setAgreed] = useState(false);
@@ -83,6 +93,8 @@ export default function Index() {
   const maxSale = Math.max(...week.map((d) => d.total), 1);
   const weekTotal = week.reduce((sum, d) => sum + d.total, 0);
   const tip = smartTip(products, sales);
+  const salesShown = useCountUp(today.total);
+  const utangShown = useCountUp(totalUtang(debtors));
 
   const showSetup = ready && (settings.ownerName === "" || !meta.acceptedTermsAt) && !setupDismissed;
   // Only nag about backups once the store is really being used.
@@ -128,12 +140,24 @@ export default function Index() {
       </View>
 
       {/* Smart tip */}
-      <View style={styles.tip}>
+      <FadeIn index={1} style={styles.tip}>
         <View style={styles.tipIcon}>
           <Ionicons name="bulb-outline" size={18} color={colors.gcash} />
         </View>
         <Text style={styles.tipText}>{t(tip.key, tip.vars)}</Text>
-      </View>
+      </FadeIn>
+
+      {storageError && (
+        <Pressable onPress={() => router.navigate("/settings")} style={styles.errorCard}>
+          <Ionicons name="alert-circle" size={20} color={colors.red} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.backupTitle}>{t("Hindi mabasa ang naka-save na data")}</Text>
+            <Text style={styles.backupText}>
+              {t("Hindi namin ito binura. I-restore mula sa backup sa Settings.")}
+            </Text>
+          </View>
+        </Pressable>
+      )}
 
       {showBackupReminder && (
         <Pressable
@@ -154,12 +178,12 @@ export default function Index() {
       )}
 
       {/* Stat cards */}
-      <View style={styles.grid}>
+      <FadeIn index={2} style={styles.grid}>
         <View style={styles.row}>
           <StatCard
             styles={styles}
             label={t("Benta ngayon")}
-            value={peso(today.total)}
+            value={peso(salesShown)}
             icon="cash-outline"
             color={colors.primary}
             tint={colors.primarySoft}
@@ -188,17 +212,17 @@ export default function Index() {
           <StatCard
             styles={styles}
             label={t("Kabuuang utang")}
-            value={peso(totalUtang(debtors))}
+            value={peso(utangShown)}
             icon="people-outline"
             color={colors.red}
             tint={colors.redSoft}
             onPress={() => router.navigate("/(tabs)/Utang")}
           />
         </View>
-      </View>
+      </FadeIn>
 
       {/* Weekly sales graph */}
-      <View style={styles.section}>
+      <FadeIn index={3} style={styles.section}>
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.sectionTitle}>{t("Benta ngayong linggo")}</Text>
@@ -213,14 +237,11 @@ export default function Index() {
             return (
               <View key={i} style={styles.barColumn}>
                 <View style={styles.barTrack}>
-                  <View
-                    style={[
-                      styles.bar,
-                      {
-                        height: `${(d.total / maxSale) * 100}%`,
-                        backgroundColor: isLast ? colors.primary : colors.primarySoft,
-                      },
-                    ]}
+                  <GrowBar
+                    percent={(d.total / maxSale) * 100}
+                    color={isLast ? colors.primary : colors.primarySoft}
+                    delay={i * 50}
+                    style={styles.bar}
                   />
                 </View>
                 <Text style={[styles.barLabel, isLast && styles.barLabelToday]}>
@@ -230,10 +251,10 @@ export default function Index() {
             );
           })}
         </View>
-      </View>
+      </FadeIn>
 
       {/* Running low */}
-      <View style={styles.section}>
+      <FadeIn index={4} style={styles.section}>
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.eyebrow}>{t("BANTAYAN")}</Text>
@@ -280,10 +301,10 @@ export default function Index() {
             );
           })
         )}
-      </View>
+      </FadeIn>
 
       {/* Today's activity */}
-      <View style={styles.section}>
+      <FadeIn index={5} style={styles.section}>
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.sectionTitle}>{t("Aktibidad ngayon")}</Text>
@@ -323,7 +344,7 @@ export default function Index() {
             </View>
           );
         })}
-      </View>
+      </FadeIn>
 
       {/* First-launch setup */}
       <BottomSheet
@@ -650,6 +671,14 @@ const createStyles = (colors: Colors) =>
       alignItems: "center",
       gap: 12,
       backgroundColor: colors.orangeSoft,
+      borderRadius: radius.md,
+      padding: 14,
+    },
+    errorCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      backgroundColor: colors.redSoft,
       borderRadius: radius.md,
       padding: 14,
     },

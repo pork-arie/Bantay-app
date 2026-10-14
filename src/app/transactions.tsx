@@ -1,7 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, SectionList, StyleSheet, Text, TextInput, View } from "react-native";
+import Animated, {
+  FadeInDown,
+  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 
+import { PressableScale } from "@/components/motion";
 import ReceiptSheet from "@/components/ReceiptSheet";
 import { peso, radius, shadow, type Colors } from "@/constants/theme";
 import type { PaymentMethod, Sale } from "@/data/sample";
@@ -22,6 +30,20 @@ const RANGES: { key: Range; label: TKey }[] = [
 ];
 const PAYMENTS: (PaymentMethod | "all")[] = ["all", "cash", "gcash", "utang"];
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Chevron that turns to point down when its group is open. */
+function Chevron({ open, color }: { open: boolean; color: string }) {
+  const turn = useSharedValue(open ? 90 : 0);
+  useEffect(() => {
+    turn.value = withTiming(open ? 90 : 0, { duration: 200 });
+  }, [open, turn]);
+  const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.value}deg` }] }));
+  return (
+    <Animated.View style={style}>
+      <Ionicons name="chevron-forward" size={18} color={color} />
+    </Animated.View>
+  );
+}
 
 function inRange(sale: Sale, range: Range) {
   const t = new Date(sale.date).getTime();
@@ -50,6 +72,8 @@ export default function TransactionsScreen() {
   const [range, setRange] = useState<Range>("7");
   const [payment, setPayment] = useState<PaymentMethod | "all">("all");
   const [open, setOpen] = useState<Sale | null>(null);
+  // Days the user opened or closed; untouched days use the default (newest open).
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase().replace(/^#/, "");
@@ -67,7 +91,7 @@ export default function TransactionsScreen() {
   }, [sales, search, range, payment]);
 
   // Group by day, newest first (sales are already sorted newest first).
-  const sections = useMemo(() => {
+  const groups = useMemo(() => {
     const groups: { title: string; total: number; data: Sale[] }[] = [];
     for (const s of filtered) {
       const title = formatDay(new Date(s.date), settings.language);
@@ -82,6 +106,16 @@ export default function TransactionsScreen() {
     }
     return groups;
   }, [filtered, settings.language]);
+
+  const searching = search.trim() !== "";
+  const isOpen = (title: string, index: number) => searching || (toggled[title] ?? index === 0);
+  // A closed day keeps its header but hides its rows, like a dropdown.
+  const sections = groups.map((g, i) => ({
+    ...g,
+    count: g.data.length,
+    open: isOpen(g.title, i),
+    data: isOpen(g.title, i) ? g.data : [],
+  }));
 
   const total = filtered.reduce((sum, s) => sum + (s.voided ? 0 : s.total), 0);
 
@@ -162,14 +196,24 @@ export default function TransactionsScreen() {
           </View>
         }
         renderSectionHeader={({ section }) => (
-          <View style={styles.dayHeader}>
-            <Text style={styles.dayTitle}>{section.title}</Text>
+          <PressableScale
+            onPress={() => setToggled({ ...toggled, [section.title]: !section.open })}
+            style={[styles.dayHeader, section.open && styles.dayHeaderOpen]}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: section.open }}
+          >
+            <Chevron open={section.open} color={colors.muted} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.dayTitle}>{section.title}</Text>
+              <Text style={styles.dayCount}>{t("{count} transaksyon", { count: section.count })}</Text>
+            </View>
             <Text style={styles.dayTotal}>{peso(section.total)}</Text>
-          </View>
+          </PressableScale>
         )}
         renderItem={({ item }) => {
           const style = pay[item.payment];
           return (
+            <Animated.View entering={FadeInDown.duration(220)} layout={LinearTransition}>
             <Pressable
               onPress={() => setOpen(item)}
               style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
@@ -198,6 +242,7 @@ export default function TransactionsScreen() {
               </View>
               <Text style={[styles.total, item.voided && styles.voidedTotal]}>{peso(item.total)}</Text>
             </Pressable>
+            </Animated.View>
           );
         }}
       />
@@ -287,9 +332,23 @@ const createStyles = (colors: Colors) =>
     },
     dayHeader: {
       flexDirection: "row",
-      justifyContent: "space-between",
-      marginTop: 10,
-      marginBottom: 2,
+      alignItems: "center",
+      gap: 10,
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      marginTop: 8,
+    },
+    dayHeaderOpen: {
+      borderColor: colors.primary,
+    },
+    dayCount: {
+      fontSize: 12,
+      color: colors.muted,
+      marginTop: 1,
     },
     dayTitle: {
       fontSize: 14,

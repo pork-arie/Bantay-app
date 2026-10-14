@@ -423,4 +423,29 @@ export const en = {
   'Kailangan ang pagsang-ayon': 'Agreement needed',
   'Basahin at sang-ayunan ang Terms of Use at Privacy Policy para magpatuloy.':
     'Please read and agree to the Terms of Use and Privacy Policy to continue.',
+  // Encryption, backup password, change PIN
+  'Gumawa ng backup': 'Make a backup',
+  'Gumawa ng naka-lock na backup': 'Make a locked backup',
+  'Ginagawa...': 'Working...',
+  'Lagyan ng password para walang ibang makabasa ng file. Kailangan ito para ma-restore, at hindi ito mababawi kapag nakalimutan.':
+    "Add a password so no one else can read the file. You'll need it to restore, and it can't be recovered if you forget it.",
+  'Password (optional)': 'Password (optional)',
+  'Ulitin ang password': 'Repeat password',
+  'Hindi magkapareho ang dalawang password.': "The two passwords don't match.",
+  'Naka-lock ang backup': 'This backup is locked',
+  'Ilagay ang password na ginamit noong ginawa ang backup.': 'Enter the password used when the backup was made.',
+  'Password': 'Password',
+  'Buksan': 'Open',
+  'Binubuksan...': 'Opening...',
+  'Mali ang password': 'Wrong password',
+  'Hindi mabuksan ang backup gamit ang password na ito.': "The backup can't be opened with this password.",
+  'Hindi mabasa ang naka-save na data': "Saved data can't be read",
+  'Hindi namin ito binura. I-restore mula sa backup sa Settings.':
+    'It was not deleted. Restore from a backup in Settings.',
+  'Palitan ang PIN': 'Change PIN',
+  'Kasalukuyang PIN': 'Current PIN',
+  'I-save ang bagong PIN': 'Save new PIN',
+  'Mali ang kasalukuyang PIN.': 'The current PIN is wrong.',
+  'Napalitan na': 'Changed',
+  'Napalitan na ang PIN.': 'Your PIN has been changed.',
 } as const;

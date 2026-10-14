@@ -13,6 +13,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 import BottomSheet from "@/components/BottomSheet";
+import { FadeIn } from "@/components/motion";
 import { avatarTints, initials, peso, radius, shadow, type Colors } from "@/constants/theme";
 import type { Debtor } from "@/data/sample";
 import { useT } from "@/i18n";
@@ -123,37 +124,39 @@ export default function Utang() {
     setNewCustomer({ name: "", phone: "", amount: "", limit: "" });
   }
 
-  function renderItem({ item }: { item: Debtor }) {
+  function renderItem({ item, index }: { item: Debtor; index: number }) {
     const bal = balanceOf(item);
     const tint = avatarTints[item.name.charCodeAt(0) % avatarTints.length];
     const last = item.entries[0];
 
     return (
-      <Pressable
-        onPress={() => openDetail(item)}
-        style={({ pressed }) => [styles.item, pressed && styles.pressed]}
-      >
-        <View style={[styles.avatar, { backgroundColor: tint.bg }]}>
-          <Text style={[styles.avatarText, { color: tint.fg }]}>{initials(item.name)}</Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.itemName}>{item.name}</Text>
-          <Text style={styles.itemMeta}>
-            {last
-              ? `${last.type === "bayad" ? t("Huling bayad") : t("Huling utang")} · ${formatDate(last.date, settings.language)}`
-              : t("Walang record")}
-          </Text>
-        </View>
-        {bal > 0 ? (
-          <Text style={styles.itemBalance}>{peso(bal)}</Text>
-        ) : (
-          <View style={styles.paidPill}>
-            <Ionicons name="checkmark-circle" size={14} color={colors.success} />
-            <Text style={styles.paidText}>{t("Bayad na")}</Text>
+      <FadeIn index={index}>
+        <Pressable
+          onPress={() => openDetail(item)}
+          style={({ pressed }) => [styles.item, pressed && styles.pressed]}
+        >
+          <View style={[styles.avatar, { backgroundColor: tint.bg }]}>
+            <Text style={[styles.avatarText, { color: tint.fg }]}>{initials(item.name)}</Text>
           </View>
-        )}
-        <Ionicons name="chevron-forward" size={18} color={colors.border} />
-      </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.itemName}>{item.name}</Text>
+            <Text style={styles.itemMeta}>
+              {last
+                ? `${last.type === "bayad" ? t("Huling bayad") : t("Huling utang")} · ${formatDate(last.date, settings.language)}`
+                : t("Walang record")}
+            </Text>
+          </View>
+          {bal > 0 ? (
+            <Text style={styles.itemBalance}>{peso(bal)}</Text>
+          ) : (
+            <View style={styles.paidPill}>
+              <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+              <Text style={styles.paidText}>{t("Bayad na")}</Text>
+            </View>
+          )}
+          <Ionicons name="chevron-forward" size={18} color={colors.border} />
+        </Pressable>
+      </FadeIn>
     );
   }
 

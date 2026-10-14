@@ -1,6 +1,6 @@
 # Terms of Use
 
-_Last updated: October 14, 2026_
+_Last updated: October 15, 2026_
 
 > **Buod (Filipino):** Sa madaling salita: libre mong magagamit ang Bantay para sa tindahan mo. Ang resibo ng app ay HINDI opisyal na resibo ng BIR. Ang mga hula at report ay tantiya lang. Hindi kami konektado sa GCash. Ikaw ang bahala sa backup ng data mo.
 

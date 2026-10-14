@@ -3,6 +3,7 @@ import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-n
 import { Ionicons } from "@expo/vector-icons";
 
 import BottomSheet from "@/components/BottomSheet";
+import { GrowBar } from "@/components/motion";
 import OwnerOnly from "@/components/OwnerOnly";
 import { peso, radius, shadow, type Colors } from "@/constants/theme";
 import type { Sale } from "@/data/sample";
@@ -77,14 +78,11 @@ export default function HistoryScreen() {
                     {m.total >= 1000 ? `${(m.total / 1000).toFixed(1)}k` : Math.round(m.total)}
                   </Text>
                   <View style={styles.barTrack}>
-                    <View
-                      style={[
-                        styles.bar,
-                        {
-                          height: `${(m.total / maxMonth) * 100}%`,
-                          backgroundColor: active ? colors.primary : colors.primarySoft,
-                        },
-                      ]}
+                    <GrowBar
+                      percent={(m.total / maxMonth) * 100}
+                      color={active ? colors.primary : colors.primarySoft}
+                      delay={i * 60}
+                      style={styles.bar}
                     />
                   </View>
                   <Text style={[styles.barLabel, active && styles.barLabelActive]}>

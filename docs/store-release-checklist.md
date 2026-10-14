@@ -27,7 +27,7 @@ Free option: GitHub Pages.
 | Question | Answer |
 | --- | --- |
 | Does your app collect or share any of the required user data types? | **No** — all data stays on the device; nothing is sent to the developer. |
-| Is all user data encrypted in transit? | Not applicable (no user data is transmitted). The only network request is a barcode number to Open Food Facts over HTTPS. |
+| Is all user data encrypted in transit? | Not applicable (no user data is transmitted). The only network request is a barcode number to Open Food Facts over HTTPS. Data on the device is encrypted with AES-256-GCM. |
 | Do you provide a way for users to request that their data is deleted? | **Yes** — Profile & Settings → "Burahin lahat ng data", or uninstall. |
 
 Other Play Console items:
@@ -44,7 +44,12 @@ Other Play Console items:
   leaves the device does not count as "collected" under Apple's definition.)
 - **Privacy manifest:** included in `app.json` → `ios.privacyManifests` (no tracking, no
   collected data types, required-reason APIs declared). Expo packages add their own.
-- **Encryption export:** `ITSAppUsesNonExemptEncryption = false` (only standard HTTPS).
+- **Encryption export:** Bantay uses standard AES-256-GCM (from expo-crypto) only to protect its
+  own data on the device and in password-protected backups, plus HTTPS. Apps that use
+  standard encryption only for this kind of data protection usually qualify for an exemption,
+  and `app.json` sets `ITSAppUsesNonExemptEncryption = false` on that basis. **Confirm this
+  when App Store Connect asks the export-compliance questions**, and change the flag if your
+  answers say otherwise.
 - **Camera usage text:** "Bantay uses the camera to scan product barcodes."
 
 ## 5. Philippines-specific reminders

@@ -6,7 +6,7 @@
 
 export const DEVELOPER = 'Bantay app developer';
 export const CONTACT_EMAIL = 'your-email@example.com';
-export const LAST_UPDATED = 'October 14, 2026';
+export const LAST_UPDATED = 'October 15, 2026';
 
 export type LegalDoc = {
   title: string;
@@ -65,13 +65,14 @@ export const PRIVACY: LegalDoc = {
     {
       heading: 'Backups',
       body: [
-        'A backup file contains all of your store data, including customer information. It is not encrypted. Store it somewhere safe and only share it with people you trust.',
+        'A backup file contains all of your store data, including customer information. If you set a backup password, the file is encrypted (AES-256-GCM) and cannot be opened without that password; the password cannot be recovered if you forget it. Backups made without a password are not encrypted, so store them somewhere safe and only share them with people you trust.',
       ],
     },
     {
       heading: 'Security',
       body: [
-        "The PIN lock keeps other people from using the app on your phone and limits what staff can do. It is not encryption. Also protect your phone with its own screen lock.",
+        'Your store data on the phone is encrypted with AES-256-GCM. The encryption key is created on your phone and kept in its secure key storage (Android Keystore or iOS Keychain), separate from the data.',
+        "The PIN lock keeps other people from using the app and limits what staff can do. Also protect your phone with its own screen lock: anyone who can unlock the phone and open the app can see the data.",
       ],
     },
     {

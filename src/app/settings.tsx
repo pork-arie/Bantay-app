@@ -4,12 +4,13 @@ import Constants from "expo-constants";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
+import BottomSheet from "@/components/BottomSheet";
 import OwnerOnly from "@/components/OwnerOnly";
 import { PIN_LENGTH } from "@/components/LockScreen";
 import { ACCENTS, BRAND, initials, radius, type Accent, type Colors } from "@/constants/theme";
 import type { Language, ThemeMode } from "@/data/sample";
 import { useT, type TKey } from "@/i18n";
-import { daysSinceBackup, exportBackup, pickBackup } from "@/lib/backup";
+import { daysSinceBackup, exportBackup, pickBackup, unlockBackup, type EncryptedBackup } from "@/lib/backup";
 import { confirm, notify } from "@/lib/confirm";
 import { printUtangList } from "@/lib/receipt";
 import { formatDate } from "@/store/selectors";
@@ -74,6 +75,12 @@ export default function SettingsScreen() {
   const [pinForm, setPinForm] = useState({ pin: "", again: "" });
   const [staffForm, setStaffForm] = useState({ name: "", pin: "" });
   const [busy, setBusy] = useState(false);
+  const [backupSheet, setBackupSheet] = useState(false);
+  const [backupPw, setBackupPw] = useState({ pw: "", again: "" });
+  const [locked, setLocked] = useState<{ backup: EncryptedBackup; exportedAt: string } | null>(null);
+  const [restorePw, setRestorePw] = useState("");
+  const [changingPin, setChangingPin] = useState(false);
+  const [changeForm, setChangeForm] = useState({ current: "", pin: "", again: "" });
 
   // Saved settings load asynchronously; refill the form once they arrive.
   useEffect(() => {
@@ -101,9 +108,14 @@ export default function SettingsScreen() {
   // ---------- Backup ----------
 
   async function backup() {
+    if (backupPw.pw !== backupPw.again) {
+      notify(t("Hindi magkapareho"), t("Hindi magkapareho ang dalawang password."));
+      return;
+    }
     setBusy(true);
     try {
-      const ok = await exportBackup({
+      const ok = await exportBackup(
+        {
         products: store.products,
         debtors: store.debtors,
         sales: store.sales,
@@ -112,10 +124,14 @@ export default function SettingsScreen() {
         staff: store.staff,
         activity: store.activity,
         meta: store.meta,
-      });
+        },
+        backupPw.pw,
+      );
       if (ok) {
         store.markBackedUp();
         success();
+        setBackupSheet(false);
+        setBackupPw({ pw: "", again: "" });
       } else {
         notify(t("Hindi natuloy"), t("Hindi mabuksan ang share menu sa phone na ito."));
       }
@@ -135,7 +151,31 @@ export default function SettingsScreen() {
       }
       return;
     }
-    const when = picked.exportedAt ? formatDate(picked.exportedAt, settings.language) : "?";
+    if ("locked" in picked) {
+      setRestorePw("");
+      setLocked({ backup: picked.locked, exportedAt: picked.exportedAt });
+      return;
+    }
+    await confirmRestore(picked.data, picked.exportedAt);
+  }
+
+  async function unlockAndRestore() {
+    if (!locked) return;
+    setBusy(true);
+    const data = await unlockBackup(locked.backup, restorePw);
+    setBusy(false);
+    if (!data) {
+      warning();
+      notify(t("Mali ang password"), t("Hindi mabuksan ang backup gamit ang password na ito."));
+      return;
+    }
+    const exportedAt = locked.exportedAt;
+    setLocked(null);
+    await confirmRestore(data, exportedAt);
+  }
+
+  async function confirmRestore(data: Parameters<typeof store.restoreData>[0], exportedAt: string) {
+    const when = exportedAt ? formatDate(exportedAt, settings.language) : "?";
     const ok = await confirm(
       t("I-restore ang backup?"),
       t("Papalitan ng backup mula {date} ang LAHAT ng data sa phone na ito.", { date: when }),
@@ -143,7 +183,7 @@ export default function SettingsScreen() {
       t("Kanselahin"),
     );
     if (!ok) return;
-    store.restoreData(picked.data);
+    store.restoreData(data);
     success();
   }
 
@@ -166,6 +206,31 @@ export default function SettingsScreen() {
     setPinForm({ pin: "", again: "" });
     success();
     notify(t("Naka-on na ang PIN"), t("Hihingin ang PIN tuwing bubuksan ang app."));
+  }
+
+  function changePin() {
+    if (changeForm.current !== settings.ownerPin) {
+      warning();
+      notify(t("Mali ang PIN"), t("Mali ang kasalukuyang PIN."));
+      return;
+    }
+    if (!PIN_RE.test(changeForm.pin)) {
+      notify(t("Kulang"), t("Ang PIN ay {n} numero.", { n: PIN_LENGTH }));
+      return;
+    }
+    if (changeForm.pin !== changeForm.again) {
+      notify(t("Hindi magkapareho"), t("Hindi magkapareho ang dalawang PIN."));
+      return;
+    }
+    if (staff.some((m) => m.pin === changeForm.pin)) {
+      notify(t("Gamit na"), t("May staff na gumagamit ng PIN na ito."));
+      return;
+    }
+    updateSettings({ ownerPin: changeForm.pin });
+    setChangeForm({ current: "", pin: "", again: "" });
+    setChangingPin(false);
+    success();
+    notify(t("Napalitan na"), t("Napalitan na ang PIN."));
   }
 
   async function removePin() {
@@ -359,8 +424,8 @@ export default function SettingsScreen() {
         <Text style={styles.hint}>
           {t("Ise-save ang lahat ng data sa isang file. Ilipat ito sa ibang phone (Bluetooth/Nearby Share), SD card, o Messenger para ligtas kahit mawala ang phone. Walang internet na kailangan.")}
         </Text>
-        <Pressable onPress={backup} disabled={busy} style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.8 }]}>
-          <Text style={styles.primaryBtnText}>{busy ? "..." : t("I-backup ngayon")}</Text>
+        <Pressable onPress={() => setBackupSheet(true)} style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.8 }]}>
+          <Text style={styles.primaryBtnText}>{t("I-backup ngayon")}</Text>
         </Pressable>
         <Row styles={styles} colors={colors} label={t("I-restore mula sa backup file")} icon="cloud-download-outline" onPress={restore} />
         <Row
@@ -410,6 +475,35 @@ export default function SettingsScreen() {
             <View style={[styles.notice, { backgroundColor: colors.successSoft }]}>
               <Text style={styles.noticeText}>{t("Naka-on ang PIN lock.")}</Text>
             </View>
+            <Row
+              styles={styles}
+              colors={colors}
+              label={t("Palitan ang PIN")}
+              icon="key-outline"
+              onPress={() => setChangingPin(!changingPin)}
+            />
+            {changingPin && (
+              <View style={styles.inlineForm}>
+                {(["current", "pin", "again"] as const).map((field) => (
+                  <TextInput
+                    key={field}
+                    value={changeForm[field]}
+                    onChangeText={(value) => setChangeForm({ ...changeForm, [field]: value })}
+                    placeholder={
+                      field === "current" ? t("Kasalukuyang PIN") : field === "pin" ? t("Bagong PIN") : t("Ulitin")
+                    }
+                    placeholderTextColor={colors.muted}
+                    keyboardType="number-pad"
+                    secureTextEntry
+                    maxLength={PIN_LENGTH}
+                    style={styles.input}
+                  />
+                ))}
+                <Pressable onPress={changePin} style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.8 }]}>
+                  <Text style={styles.primaryBtnText}>{t("I-save ang bagong PIN")}</Text>
+                </Pressable>
+              </View>
+            )}
             <Row styles={styles} colors={colors} label={t("Alisin ang PIN lock")} icon="lock-open-outline" onPress={removePin} danger />
 
             <Text style={[styles.label, { marginTop: 18 }]}>{t("Staff")}</Text>
@@ -465,6 +559,56 @@ export default function SettingsScreen() {
         <Row styles={styles} colors={colors} label="Terms of Use" icon="reader-outline" onPress={() => router.navigate({ pathname: "/legal", params: { doc: "terms" } })} />
         <Row styles={styles} colors={colors} label="Notices & Credits" icon="information-circle-outline" onPress={() => router.navigate({ pathname: "/legal", params: { doc: "notices" } })} />
       </Card>
+
+      {/* Make a backup (optional password) */}
+      <BottomSheet visible={backupSheet} title={t("Gumawa ng backup")} onClose={() => setBackupSheet(false)}>
+        <Text style={styles.hint}>
+          {t("Lagyan ng password para walang ibang makabasa ng file. Kailangan ito para ma-restore, at hindi ito mababawi kapag nakalimutan.")}
+        </Text>
+        <View style={styles.inlineForm}>
+          <TextInput
+            value={backupPw.pw}
+            onChangeText={(pw) => setBackupPw({ ...backupPw, pw })}
+            placeholder={t("Password (optional)")}
+            placeholderTextColor={colors.muted}
+            secureTextEntry
+            style={styles.input}
+          />
+          {backupPw.pw !== "" && (
+            <TextInput
+              value={backupPw.again}
+              onChangeText={(again) => setBackupPw({ ...backupPw, again })}
+              placeholder={t("Ulitin ang password")}
+              placeholderTextColor={colors.muted}
+              secureTextEntry
+              style={styles.input}
+            />
+          )}
+        </View>
+        <Pressable onPress={backup} disabled={busy} style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.8 }]}>
+          <Text style={styles.primaryBtnText}>
+            {busy ? t("Ginagawa...") : backupPw.pw ? t("Gumawa ng naka-lock na backup") : t("Gumawa ng backup")}
+          </Text>
+        </Pressable>
+      </BottomSheet>
+
+      {/* Restore a password-protected backup */}
+      <BottomSheet visible={locked !== null} title={t("Naka-lock ang backup")} onClose={() => setLocked(null)}>
+        <Text style={styles.hint}>{t("Ilagay ang password na ginamit noong ginawa ang backup.")}</Text>
+        <View style={styles.inlineForm}>
+          <TextInput
+            value={restorePw}
+            onChangeText={setRestorePw}
+            placeholder={t("Password")}
+            placeholderTextColor={colors.muted}
+            secureTextEntry
+            style={styles.input}
+          />
+        </View>
+        <Pressable onPress={unlockAndRestore} disabled={busy} style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.8 }]}>
+          <Text style={styles.primaryBtnText}>{busy ? t("Binubuksan...") : t("Buksan")}</Text>
+        </Pressable>
+      </BottomSheet>
 
       <Text style={styles.version}>
         {BRAND} v{version}
@@ -622,6 +766,10 @@ const createStyles = (colors: Colors) =>
       flex: 1,
       fontSize: 15,
       color: colors.text,
+    },
+    inlineForm: {
+      gap: 8,
+      marginTop: 10,
     },
     staffRow: {
       flexDirection: "row",

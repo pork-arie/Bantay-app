@@ -23,7 +23,6 @@ const DRAWER_TABS: { label: TKey; route: string; segment: string; icon: string; 
   { label: 'Kasaysayan ng benta', route: '/history', segment: 'history', icon: 'calendar-outline', needs: 'viewProfit' },
   { label: 'Activity log', route: '/activity', segment: 'activity', icon: 'list-outline', needs: 'activity' },
   { label: 'Profile at Settings', route: '/settings', segment: 'settings', icon: 'settings-outline', needs: 'settings' },
-  { label: 'Privacy at Terms', route: '/legal', segment: 'legal', icon: 'document-text-outline' },
 ];
 
 function CustomDrawerContent(props: any) {
@@ -96,7 +95,10 @@ function AppDrawer() {
   const { ready, locked } = useStore();
   // The header belongs to the drawer, so read the active tab from the URL.
   const segments = useSegments() as string[];
-  const page = DRAWER_TABS.find((tab) => tab.segment === segments[segments.length - 1]);
+  const last = segments[segments.length - 1];
+  // Legal opens from Settings, so it isn't in the drawer but still needs a title.
+  const pageLabel: TKey =
+    last === 'legal' ? 'Privacy at Terms' : (DRAWER_TABS.find((tab) => tab.segment === last)?.label ?? 'Dashboard');
 
   return (
     <>
@@ -108,7 +110,7 @@ function AppDrawer() {
           headerStyle: { backgroundColor: colors.surface },
           headerTintColor: colors.text,
           headerShadowVisible: false,
-          headerTitle: () => <BrandTitle page={t(page?.label ?? 'Dashboard')} />,
+          headerTitle: () => <BrandTitle page={t(pageLabel)} />,
           drawerStyle: { backgroundColor: colors.surface },
           sceneStyle: { backgroundColor: colors.background },
         }}

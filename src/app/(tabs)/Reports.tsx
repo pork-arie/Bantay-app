@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import BottomSheet from "@/components/BottomSheet";
 import ForecastCard from "@/components/ForecastCard";
+import { GrowBar, useCountUp } from "@/components/motion";
 import OwnerOnly from "@/components/OwnerOnly";
 import { peso, radius, shadow, type Colors } from "@/constants/theme";
 import type { PaymentMethod, Period } from "@/data/sample";
@@ -42,6 +43,7 @@ export default function Reports() {
 
   const report = summarize(salesInLastDays(sales, PERIOD_DAYS[period]));
   const periodTitle = t(PERIODS.find((p) => p.key === period)!.title);
+  const totalShown = useCountUp(report.total);
   const margin = report.total > 0 ? (report.profit / report.total) * 100 : 0;
   const average = report.transactions > 0 ? report.total / report.transactions : 0;
   const chart = trend(sales, period, settings.language);
@@ -131,7 +133,7 @@ export default function Reports() {
       {/* Hero: sales + profit */}
       <View style={styles.hero}>
         <Text style={styles.heroLabel}>{t("Kabuuang benta")}</Text>
-        <Text style={styles.heroValue}>{peso(report.total)}</Text>
+        <Text style={styles.heroValue}>{peso(totalShown)}</Text>
         <View style={styles.heroDivider} />
         <View style={styles.heroRow}>
           <View>
@@ -214,14 +216,12 @@ export default function Reports() {
                   {bucket.total >= 1000 ? `${(bucket.total / 1000).toFixed(1)}k` : Math.round(bucket.total)}
                 </Text>
                 <View style={styles.barTrack}>
-                  <View
-                    style={[
-                      styles.bar,
-                      {
-                        height: `${(bucket.total / maxTrend) * 100}%`,
-                        backgroundColor: isBest ? colors.primary : colors.primarySoft,
-                      },
-                    ]}
+                  <GrowBar
+                    key={period}
+                    percent={(bucket.total / maxTrend) * 100}
+                    color={isBest ? colors.primary : colors.primarySoft}
+                    delay={i * 40}
+                    style={styles.bar}
                   />
                 </View>
                 <Text style={styles.barLabel}>{bucket.label}</Text>

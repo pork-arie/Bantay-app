@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import BarcodeScanner from "@/components/BarcodeScanner";
 import BottomSheet from "@/components/BottomSheet";
+import { FadeIn } from "@/components/motion";
 import { avatarTints, initials, peso, radius, shadow, type Colors } from "@/constants/theme";
 import { CATEGORIES, type Category, type Product } from "@/data/sample";
 import { useT, type TKey } from "@/i18n";
@@ -219,42 +220,44 @@ export default function Inventory() {
     Share.share({ message: lines.join("\n") });
   }
 
-  function renderItem({ item }: { item: Product }) {
+  function renderItem({ item, index }: { item: Product; index: number }) {
     const tint = avatarTints[PRODUCT_CATEGORIES.indexOf(item.category) % avatarTints.length];
     const fill = Math.min(item.stock / (item.min * 2), 1);
     const color = stockColor(item);
 
     return (
-      <Pressable
-        onPress={() => openRestock(item)}
-        style={({ pressed }) => [styles.item, pressed && styles.pressed]}
-      >
-        <View style={[styles.avatar, { backgroundColor: tint.bg }]}>
-          <Text style={[styles.avatarText, { color: tint.fg }]}>{initials(item.name)}</Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.itemName} numberOfLines={1}>
-            {item.name}
-          </Text>
-          <Text style={styles.itemMeta}>
-            {t(item.category)} · {peso(item.price)}/{item.unit}
-            {item.pack ? ` · ${peso(item.pack.price)}/${item.pack.name}` : ""}
-          </Text>
-          <View style={styles.track}>
-            <View style={[styles.fill, { width: `${fill * 100}%`, backgroundColor: color }]} />
+      <FadeIn index={index}>
+        <Pressable
+          onPress={() => openRestock(item)}
+          style={({ pressed }) => [styles.item, pressed && styles.pressed]}
+        >
+          <View style={[styles.avatar, { backgroundColor: tint.bg }]}>
+            <Text style={[styles.avatarText, { color: tint.fg }]}>{initials(item.name)}</Text>
           </View>
-        </View>
-        <View style={{ alignItems: "flex-end", minWidth: 64 }}>
-          <Text style={[styles.itemStock, { color }]}>{item.stock}</Text>
-          <Text style={styles.itemMeta}>
-            {item.stock === 0
-              ? t("Ubos na")
-              : isLowStock(item)
-                ? t("min. {min}", { min: item.min })
-                : item.unit}
-          </Text>
-        </View>
-      </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.itemName} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Text style={styles.itemMeta}>
+              {t(item.category)} · {peso(item.price)}/{item.unit}
+              {item.pack ? ` · ${peso(item.pack.price)}/${item.pack.name}` : ""}
+            </Text>
+            <View style={styles.track}>
+              <View style={[styles.fill, { width: `${fill * 100}%`, backgroundColor: color }]} />
+            </View>
+          </View>
+          <View style={{ alignItems: "flex-end", minWidth: 64 }}>
+            <Text style={[styles.itemStock, { color }]}>{item.stock}</Text>
+            <Text style={styles.itemMeta}>
+              {item.stock === 0
+                ? t("Ubos na")
+                : isLowStock(item)
+                  ? t("min. {min}", { min: item.min })
+                  : item.unit}
+            </Text>
+          </View>
+        </Pressable>
+      </FadeIn>
     );
   }
 

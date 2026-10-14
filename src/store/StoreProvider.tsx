@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { peso } from '@/constants/theme';
 import {
@@ -19,12 +19,16 @@ import {
   type Settings,
   type StaffMember,
 } from '@/data/sample';
+import { decryptText, encryptText } from '@/lib/crypto';
+import { getDeviceKey } from './deviceKey';
 import { loadItem, saveItem } from './storage';
 
 // v2 added tingi/pack units; older saved data is not migrated.
 const STORAGE_KEY = 'bantay-state-v2';
 /** Oldest activity entries are dropped past this, to keep the saved data small. */
 const MAX_ACTIVITY = 1000;
+/** Prefix marking saved data that is AES-encrypted with the device key. */
+const ENCRYPTED_PREFIX = 'enc1:';
 
 export type State = {
   products: Product[];
@@ -62,6 +66,8 @@ export type CheckoutInput = {
 
 type Store = State & {
   ready: boolean;
+  /** Saved data exists but couldn't be decrypted; saving is paused so it isn't overwritten. */
+  storageError: boolean;
   session: Session | null;
   /** True when an owner PIN is set and nobody has unlocked the app yet. */
   locked: boolean;
@@ -128,20 +134,35 @@ export function normalizeState(saved: Partial<State>): State {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>(seedState);
   const [ready, setReady] = useState(false);
+  const [storageError, setStorageError] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
+  // Saves run one after another so an older, slower save never lands last.
+  const saveQueue = useRef(Promise.resolve());
 
   useEffect(() => {
-    loadItem(STORAGE_KEY)
-      .then((raw) => {
-        if (raw) setState(normalizeState(JSON.parse(raw) as Partial<State>));
-      })
-      .catch(() => {})
+    (async () => {
+      const raw = await loadItem(STORAGE_KEY);
+      if (!raw) return;
+      // Older versions saved plain JSON; it gets encrypted on the next save.
+      const json = raw.startsWith(ENCRYPTED_PREFIX)
+        ? await decryptText(raw.slice(ENCRYPTED_PREFIX.length), await getDeviceKey())
+        : raw;
+      setState(normalizeState(JSON.parse(json) as Partial<State>));
+    })()
+      .catch(() => setStorageError(true))
       .finally(() => setReady(true));
   }, []);
 
   useEffect(() => {
-    if (ready) saveItem(STORAGE_KEY, JSON.stringify(state)).catch(() => {});
-  }, [state, ready]);
+    if (!ready || storageError) return;
+    const json = JSON.stringify(state);
+    saveQueue.current = saveQueue.current
+      .then(async () => {
+        const encrypted = await encryptText(json, await getDeviceKey());
+        await saveItem(STORAGE_KEY, ENCRYPTED_PREFIX + encrypted);
+      })
+      .catch(() => {});
+  }, [state, ready, storageError]);
 
   const locked = state.settings.ownerPin !== '' && session === null;
   // With no PIN set there is only the owner.
@@ -180,6 +201,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const store: Store = {
     ...state,
     ready,
+    storageError,
     session: locked ? null : current,
     locked,
 
@@ -368,6 +390,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     restoreData(data) {
       setSession(null);
+      setStorageError(false);
       setState(logged(normalizeState(data), 'restore', ''));
     },
 
@@ -384,6 +407,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     wipeData() {
       setSession(null);
+      setStorageError(false);
       setState({
         products: [],
         debtors: [],

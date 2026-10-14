@@ -1,6 +1,14 @@
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated, {
+  FadeIn,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+  ZoomIn,
+} from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 
 import { BRAND, type Colors } from "@/constants/theme";
@@ -21,6 +29,8 @@ export default function LockScreen() {
   const { login, settings } = useStore();
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
+  const shake = useSharedValue(0);
+  const shakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shake.value }] }));
 
   function press(key: string) {
     if (key === "del") {
@@ -36,6 +46,13 @@ export default function LockScreen() {
       if (!login(next)) {
         warning();
         setError(true);
+        shake.value = withSequence(
+          withTiming(-12, { duration: 50 }),
+          withTiming(12, { duration: 50 }),
+          withTiming(-8, { duration: 50 }),
+          withTiming(8, { duration: 50 }),
+          withTiming(0, { duration: 50 }),
+        );
         setTimeout(() => setPin(""), 250);
       }
     }
@@ -44,27 +61,28 @@ export default function LockScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 }]}>
       <View style={styles.top}>
-        <View style={styles.logo}>
+        <Animated.View entering={ZoomIn.springify().damping(14)} style={styles.logo}>
           <Ionicons name="storefront" size={28} color="#fff" />
-        </View>
+        </Animated.View>
         <Text style={styles.brand}>{BRAND}</Text>
         {settings.storeName !== "" && <Text style={styles.store}>{settings.storeName}</Text>}
         <Text style={styles.prompt}>{t("Ilagay ang iyong PIN")}</Text>
-        <View style={styles.dots}>
+        <Animated.View style={[styles.dots, shakeStyle]}>
           {Array.from({ length: PIN_LENGTH }, (_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.dot,
-                i < pin.length && { backgroundColor: error ? colors.red : colors.primary, borderColor: "transparent" },
-              ]}
-            />
+            <View key={i} style={styles.dot}>
+              {i < pin.length && (
+                <Animated.View
+                  entering={ZoomIn.duration(150)}
+                  style={[styles.dotFill, { backgroundColor: error ? colors.red : colors.primary }]}
+                />
+              )}
+            </View>
           ))}
-        </View>
+        </Animated.View>
         <Text style={[styles.error, !error && { opacity: 0 }]}>{t("Mali ang PIN. Subukan ulit.")}</Text>
       </View>
 
-      <View style={styles.pad}>
+      <Animated.View entering={FadeIn.duration(400)} style={styles.pad}>
         {KEYS.map((key, i) =>
           key === "" ? (
             <View key={i} style={styles.key} />
@@ -83,7 +101,7 @@ export default function LockScreen() {
             </Pressable>
           ),
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -134,6 +152,13 @@ const createStyles = (colors: Colors) =>
       borderRadius: 8,
       borderWidth: 2,
       borderColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    dotFill: {
+      width: 16,
+      height: 16,
+      borderRadius: 8,
     },
     error: {
       color: colors.red,
