@@ -82,7 +82,8 @@ export async function encryptText(text: string, key: AESEncryptionKey) {
 
 /** Throws if the key is wrong or the data was changed (GCM checks integrity). */
 export async function decryptText(combinedBase64: string, key: AESEncryptionKey) {
-  const sealed = AESSealedData.fromCombined(combinedBase64);
+  // Pass bytes, not the base64 string: Android's fromCombined only accepts bytes.
+  const sealed = AESSealedData.fromCombined(base64ToBytes(combinedBase64));
   const bytes = (await aesDecryptAsync(sealed, key, { output: 'bytes' })) as Uint8Array;
   return utf8Decode(bytes);
 }
