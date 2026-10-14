@@ -19,15 +19,17 @@ type Props = {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  /** How the sheet appears: slides up (default) or fades in. */
+  animation?: "slide" | "fade";
 };
 
-export default function BottomSheet({ visible, title, onClose, children }: Props) {
+export default function BottomSheet({ visible, title, onClose, children, animation = "slide" }: Props) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType={animation} transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.backdrop}
         behavior={Platform.OS === "ios" ? "padding" : undefined}

@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import Animated, { FadeInDown, SlideInDown, SlideOutDown, ZoomIn } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, FadeOut } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 
 import BarcodeScanner, { type ScanFeedback } from "@/components/BarcodeScanner";
@@ -215,7 +215,7 @@ export default function Benta() {
       >
         <PressableScale onPress={() => changeQty(item, "tingi", 1)} disabled={remaining < 1} scaleTo={0.95}>
           {tingiQty > 0 && (
-            <Animated.View key={tingiQty} entering={ZoomIn.springify().damping(12)} style={styles.qtyBadge}>
+            <Animated.View key={tingiQty} entering={FadeIn.duration(150)} style={styles.qtyBadge}>
               <Text style={styles.qtyBadgeText}>{tingiQty}</Text>
             </Animated.View>
           )}
@@ -333,19 +333,19 @@ export default function Benta() {
 
       {/* Cart bar */}
       {itemCount > 0 && (
-        <Animated.View entering={SlideInDown.springify().damping(18)} exiting={SlideOutDown} style={styles.cartBarWrap}>
-          <PressableScale onPress={() => setCartOpen(true)} style={styles.cartBar}>
-            <Animated.View key={itemCount} entering={ZoomIn.springify()} style={styles.cartBarCount}>
+        <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)} style={styles.cartBarWrap}>
+          <Pressable onPress={() => setCartOpen(true)} style={({ pressed }) => [styles.cartBar, pressed && { opacity: 0.85 }]}>
+            <Animated.View key={itemCount} entering={FadeIn.duration(150)} style={styles.cartBarCount}>
               <Text style={styles.cartBarCountText}>{itemCount}</Text>
             </Animated.View>
             <Text style={styles.cartBarLabel}>{t("Tingnan ang cart")}</Text>
             <Text style={styles.cartBarTotal}>{peso(total)}</Text>
-          </PressableScale>
+          </Pressable>
         </Animated.View>
       )}
 
       {/* Cart & payment */}
-      <BottomSheet visible={cartOpen} title={t("Cart")} onClose={() => setCartOpen(false)}>
+      <BottomSheet visible={cartOpen} title={t("Cart")} onClose={() => setCartOpen(false)} animation="fade">
         <ScrollView keyboardShouldPersistTaps="handled">
           {cartLines.map(({ product, unit, qty }) => {
             const item = saleItem(product, unit, qty);
