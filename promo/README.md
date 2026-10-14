@@ -1,6 +1,6 @@
 # Bantay promo video
 
-A ~67-second promotional video for Bantay with a Tagalog voice-over, made with [Remotion](https://www.remotion.dev),
+A ~67-second promotional video for Bantay with an English voice-over, made with [Remotion](https://www.remotion.dev),
 in two sizes:
 
 - **Vertical 1080×1920** (`BantayPromo`): Facebook Reels, TikTok, Instagram, phone screens
@@ -21,9 +21,8 @@ npm run render            # writes both videos to out/
   a red laser sweeps the barcode, it beeps, the item drops into the cart, and Done opens Bantay's real cart
   screen (`public/scan-cart.png`). The packages (`public/pkg-*.png`) are generic, with no brand logos.
 - `public/voice/*.wav` + `src/voice.json`: the voice-over, generated with the open-source
-  [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) voice (Apache-2.0). Kokoro has no Tagalog voice, so the
-  Tagalog script is read by the Spanish `ef_dora` voice, with words respelled to sound right. For the most
-  natural result, record a real voice over the same script and replace the files in `public/voice/`.
+  [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) voice (Apache-2.0): the English male voice `am_michael`,
+  with the Filipino and Waray greetings read by the Spanish male voice `em_alex`. On-screen text is in Tagalog/Taglish.
 - `public/beep.wav`: the scanner beep.
 
 ## Changing the voice-over

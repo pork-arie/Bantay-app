@@ -7,7 +7,7 @@ Run from the promo folder:
         python3 scripts/make-voice.py path/to/kokoro-v1.0.onnx path/to/voices-v1.0.bin
 
 Writes public/voice/<id>.wav and src/voice.json (the length of each line, which sets scene timing).
-The narration is Tagalog, read by the Spanish voice (no Tagalog voice is available offline).
+English narration with a male voice; the Filipino and Waray greetings use the Spanish voice.
 """
 import json
 import sys
@@ -15,32 +15,31 @@ import sys
 import soundfile as sf
 from kokoro_onnx import Kokoro
 
-EN = ("af_heart", "en-us")
-ES = ("ef_dora", "es")  # Spanish spelling rules read Filipino and Waray naturally
+EN = ("am_michael", "en-us")
+ES = ("em_alex", "es")  # Spanish spelling rules read Filipino and Waray naturally
 
-# Tagalog script, spelled so the Spanish voice says it right:
-# "nang" for a standalone "ng", "j" for an h-sound, "gui" for a hard g before i,
-# and English loanwords spelled as they sound (Yikash = GCash, barkod = barcode).
+# English narration (male). Filipino words are spelled as they sound
+# ("Bahn-tai" = Bantay, "oo-tung" = utang); the two greetings use the Spanish voice.
 LINES = [
-    ("hook", ES, "Nalulugui ka ba sa tindajan mo, pero di mo alam kung bakit?"),
-    ("p1", ES, "Utang na nakalimutan sa kuwaderno?"),
-    ("p2", ES, "Paubos na pala ang estak, di mo napansin?"),
-    ("p3", ES, "Saan napupunta ang kita?"),
-    ("reveal", ES, "Kilalanin ang Bantay. Ang ap na nagbabantay sa tindajan mo."),
-    ("sell", ES, "Mabilis magbenta, tingui man o pakete."),
-    ("scan", ES, "Iskan lang ang barkod. Bip! Pasok agad sa kart."),
-    ("pay", ES, "Kash, Yikash, o utang. Kusang kinukuwenta ang sukli."),
-    ("receipt", ES, "May resibo ang bawat benta."),
-    ("utang", ES, "Di na mawawala ang listajan nang utang."),
-    ("inventory", ES, "Alam mo agad kung ano ang paubos na."),
-    ("forecast", ES, "At ang pinakamaganda: jinujulaan nang Bantay ang benta at kita mo, at ipinapakita kung magkano ang kikitain mo."),
-    ("staff", ES, "May sariling pin ang bawat taujan, at nakalog ang bawat benta."),
-    ("lang", ES, "Marunong din siya nang wika mo. Inglis."),
+    ("hook", EN, "Losing money in your store, and you don't know why?"),
+    ("p1", EN, "Oo-tung forgotten in a notebook?"),
+    ("p2", EN, "Stock running out without warning?"),
+    ("p3", EN, "Where did the profit go?"),
+    ("reveal", EN, "Meet Bahn-tai. The app that watches over your store."),
+    ("sell", EN, "Sell in seconds, by the piece or by the pack."),
+    ("scan", EN, "Just scan the barcode. Beep! It's in the cart."),
+    ("pay", EN, "Cash, GCash, or oo-tung. It even computes the change."),
+    ("receipt", EN, "Every sale gets a receipt."),
+    ("utang", EN, "Your oo-tung list never gets lost."),
+    ("inventory", EN, "Know what's running low, before it runs out."),
+    ("forecast", EN, "And the best part: Bahn-tai predicts your sales and profit, and shows exactly how much you'll earn."),
+    ("staff", EN, "Staff get their own PIN, and every sale is logged."),
+    ("lang", EN, "And it speaks your language. English."),
     ("lang_fil", ES, "Filipino. Magandang araw!"),
     ("lang_war", ES, "Waray. Maupaynga adlaw!"),
-    ("trust", ES, "Gumagana kajit walang internet. Ligtas ang data mo. Walang eds."),
-    ("outro", ES, "Bantay. Bantay sa tindajan mo."),
-    ("cta", ES, "I-dawnlod na sa Android."),
+    ("trust", EN, "Works offline. Your data stays safe. No ads."),
+    ("outro", EN, "Bahn-tai. Watching over your store."),
+    ("cta", EN, "Download it now for Android."),
 ]
 
 kokoro = Kokoro(sys.argv[1], sys.argv[2])
