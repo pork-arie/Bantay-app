@@ -3,7 +3,6 @@ import {
   AbsoluteFill,
   Audio,
   Img,
-  OffthreadVideo,
   Sequence,
   interpolate,
   spring,
@@ -60,10 +59,17 @@ const chain = (ids: VoiceId[], start: number, gap: number): Line[] => {
   });
 };
 
-const SCAN_RATE = 1.6; // the scan recording plays a little faster than real time
-const SCAN_TRIM = 0.5; // seconds cut from the start of the recording
-/** Moments in the recording (seconds) when each product scans and when the cart opens. */
-const scanAt = (clipSeconds: number) => sec((clipSeconds - SCAN_TRIM) / SCAN_RATE);
+// Scan demo timing (frames): each product takes one 2-second cycle.
+const SCAN_START = 24;
+const SCAN_CYCLE = 60;
+const SCAN_BEEP = 30; // frames into a cycle when the barcode is read
+const SCANS = [
+  { img: "pkg-1.png", name: "Coke 290ml", price: 20 },
+  { img: "pkg-2.png", name: "Kopiko 3in1", price: 10 },
+  { img: "pkg-3.png", name: "Piattos", price: 18 },
+];
+const beepAt = (i: number) => SCAN_START + i * SCAN_CYCLE + SCAN_BEEP;
+const CHECKOUT_TAP = SCAN_START + SCANS.length * SCAN_CYCLE + 6;
 
 const DEFS: SceneDef[] = [
   { min: 3.2, pad: 0.4, lines: [{ id: "hook", at: 0.3 }], render: () => <Hook /> },
@@ -77,7 +83,6 @@ const DEFS: SceneDef[] = [
     lines: [{ id: "sell", at: 0.3 }],
     render: () => (
       <Feature
-        index={1}
         tag="Sell"
         title="Sell in seconds"
         highlight={["seconds"]}
@@ -92,29 +97,11 @@ const DEFS: SceneDef[] = [
     ),
   },
   {
-    min: 7.2,
+    min: (CHECKOUT_TAP + 50) / FPS,
     pad: 0.3,
     lines: [{ id: "scan", at: 0.3 }],
-    beeps: [scanAt(2.17), scanAt(4.47), scanAt(7.07)],
-    render: () => (
-      <Feature
-        index={2}
-        tag="Real barcode scanning"
-        title="Scan. Beep. Added."
-        highlight={["Beep"]}
-        lines={["Item after item, straight into the cart", "Checkout in one tap"]}
-        screens={[
-          <OffthreadVideo key="scan" src={staticFile("scan.mp4")} trimBefore={sec(SCAN_TRIM)} playbackRate={SCAN_RATE} muted style={{ width: "100%", display: "block" }} />,
-        ]}
-        callouts={[
-          { icon: "✅", text: "Coke 290ml +₱20", at: scanAt(2.17) },
-          { icon: "✅", text: "Kopiko 3in1 +₱10", at: scanAt(4.47) },
-          { icon: "✅", text: "Piattos +₱18", at: scanAt(7.07) },
-          { icon: "🛒", text: "Total ₱48 · 1 tap", at: scanAt(9.6) },
-        ]}
-        scanPulse={[scanAt(2.17), scanAt(4.47), scanAt(7.07)]}
-      />
-    ),
+    beeps: SCANS.map((_, i) => beepAt(i)),
+    render: () => <ScanDemo />,
   },
   {
     min: 3,
@@ -122,7 +109,6 @@ const DEFS: SceneDef[] = [
     lines: [{ id: "pay", at: 0.3 }],
     render: () => (
       <Feature
-        index={3}
         tag="Payments"
         title="Cash, GCash or Utang"
         highlight={["GCash", "Utang"]}
@@ -142,7 +128,6 @@ const DEFS: SceneDef[] = [
     lines: [{ id: "receipt", at: 0.3 }],
     render: () => (
       <Feature
-        index={4}
         tag="Receipts"
         title="Proof for every sale"
         highlight={["every", "sale"]}
@@ -162,7 +147,6 @@ const DEFS: SceneDef[] = [
     lines: [{ id: "utang", at: 0.3 }],
     render: () => (
       <Feature
-        index={5}
         tag="Utang"
         title="No more lost notebook"
         highlight={["lost", "notebook"]}
@@ -182,7 +166,6 @@ const DEFS: SceneDef[] = [
     lines: [{ id: "inventory", at: 0.3 }],
     render: () => (
       <Feature
-        index={6}
         tag="Inventory"
         title="Know before it runs out"
         highlight={["runs", "out"]}
@@ -203,7 +186,6 @@ const DEFS: SceneDef[] = [
     lines: [{ id: "staff", at: 0.3 }],
     render: () => (
       <Feature
-        index={8}
         tag="Bantay mode"
         title="Your staff, watched over"
         highlight={["watched", "over"]}
@@ -522,11 +504,13 @@ function PhoneStage({
   callouts,
   width,
   pulses = [],
+  tilt,
 }: {
   screens: ReactNode[];
   callouts: Callout[];
   width: number;
   pulses?: number[];
+  tilt?: number;
 }) {
   const frame = useCurrentFrame();
   const two = screens.length === 2;
@@ -538,7 +522,7 @@ function PhoneStage({
     <div style={{ position: "relative", width, display: "flex", justifyContent: "center", gap: width * 0.04 }}>
       {screens.map((screen, i) => (
         <div key={i} style={two ? { marginTop: i * width * 0.12 } : undefined}>
-          <Phone3D width={phoneW} delay={6 + i * 6} tilt={two ? (i === 0 ? 14 : -14) : -12} glow={glow}>
+          <Phone3D width={phoneW} delay={6 + i * 6} tilt={tilt ?? (two ? (i === 0 ? 14 : -14) : -12)} glow={glow}>
             {screen}
           </Phone3D>
         </div>
@@ -657,29 +641,6 @@ function Reveal() {
   );
 }
 
-function Corner({ index }: { index: number }) {
-  const landscape = useLandscape();
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: landscape ? 50 : 70,
-        left: landscape ? 70 : 60,
-        display: "flex",
-        alignItems: "center",
-        gap: 16,
-        color: WHITE,
-        fontSize: 36,
-        fontWeight: 800,
-      }}
-    >
-      <AppIcon size={60} glow={false} />
-      Bantay
-      <span style={{ color: SOFT, fontWeight: 600, marginLeft: 8 }}>{String(index).padStart(2, "0")} / 09</span>
-    </div>
-  );
-}
-
 function FeatureText({
   tag,
   title,
@@ -721,7 +682,6 @@ function FeatureText({
 }
 
 function Feature({
-  index,
   tag,
   title,
   highlight,
@@ -730,7 +690,6 @@ function Feature({
   callouts,
   scanPulse,
 }: {
-  index: number;
   tag: string;
   title: string;
   highlight: string[];
@@ -745,7 +704,6 @@ function Feature({
   if (landscape) {
     return (
       <AbsoluteFill>
-        <Corner index={index} />
         <div style={{ position: "absolute", left: 130, top: 0, bottom: 0, width: 860, display: "flex", alignItems: "center" }}>{text}</div>
         <div style={{ position: "absolute", right: 110, top: two ? 90 : 100, width: 720, display: "flex", justifyContent: "center" }}>
           <PhoneStage screens={screens} callouts={callouts} width={two ? 720 : 580} pulses={scanPulse} />
@@ -755,7 +713,6 @@ function Feature({
   }
   return (
     <AbsoluteFill style={{ alignItems: "center" }}>
-      <Corner index={index} />
       <div style={{ marginTop: 200, padding: "0 60px" }}>{text}</div>
       <div style={{ position: "absolute", top: 800, left: 0, right: 0, display: "flex", justifyContent: "center" }}>
         <PhoneStage screens={screens} callouts={callouts} width={two ? 900 : 700} pulses={scanPulse} />
@@ -773,6 +730,253 @@ function CountUp({ to, delay, size }: { to: number; delay: number; size: number 
     <span style={{ fontSize: size, fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>
       ₱{Math.round(to * eased).toLocaleString("en-US")}
     </span>
+  );
+}
+
+/** Phone screen height ÷ width (the app's screenshots are 1170×2532). */
+const SCREEN_RATIO = 2532 / 1170;
+
+/** Which product is in front of the camera, and how far through its cycle (frames). */
+const scanState = (frame: number) => {
+  const i = Math.floor((frame - SCAN_START) / SCAN_CYCLE);
+  const local = frame - SCAN_START - i * SCAN_CYCLE;
+  const scanned = SCANS.filter((_, k) => frame >= beepAt(k)).length;
+  return { i: i >= 0 && i < SCANS.length ? i : -1, local, scanned };
+};
+
+/**
+ * A demo of Bantay's scanner screen: the product comes into view, a red laser sweeps the
+ * barcode, it beeps, and the item drops into the cart. After three items, Done opens the cart.
+ */
+function ScanScreen({ w }: { w: number }) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const h = w * SCREEN_RATIO;
+  const u = w / 390; // the app's own pixel scale
+  const { i, local, scanned } = scanState(frame);
+  const box = { left: 0.17 * w, top: 0.377 * h, width: 0.66 * w, height: 0.188 * h };
+  const product = i >= 0 ? SCANS[i] : null;
+  const x = product ? interpolate(local, [0, 12, 48, 60], [w * 1.2, 0, 0, -w * 1.2], clamp) : 0;
+  const pw = 0.62 * w;
+  const ph = (pw * 700) / 470;
+  const reading = product && local >= 12 && local < SCAN_BEEP;
+  const read = product && local >= SCAN_BEEP && local < 48;
+  const laserY = box.top + box.height * (0.5 + 0.45 * Math.sin(local / 2.2));
+  const flash = product ? interpolate(local, [SCAN_BEEP, SCAN_BEEP + 10], [0.7, 0], clamp) : 0;
+  const beepPop = product ? spring({ frame: local - SCAN_BEEP, fps, config: { damping: 9, stiffness: 200 } }) : 0;
+  const last = scanned > 0 ? SCANS[scanned - 1] : null;
+  const total = SCANS.slice(0, scanned).reduce((sum, p) => sum + p.price, 0);
+  const countPop = scanned > 0 ? spring({ frame: frame - beepAt(scanned - 1), fps, config: { damping: 8, stiffness: 220 } }) : 1;
+  const fly = product ? interpolate(local, [SCAN_BEEP, SCAN_BEEP + 14], [0, 1], clamp) : 0;
+  const tap = interpolate(frame, [CHECKOUT_TAP, CHECKOUT_TAP + 12], [0, 1], clamp);
+  const cart = interpolate(frame, [CHECKOUT_TAP + 6, CHECKOUT_TAP + 14], [0, 1], clamp);
+  return (
+    <div style={{ position: "relative", width: w, height: h, overflow: "hidden", fontFamily }}>
+      <Img src={staticFile("counter.png")} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+      {product && (
+        <Img
+          src={staticFile(product.img)}
+          style={{
+            position: "absolute",
+            width: pw,
+            left: (w - pw) / 2 + x,
+            top: box.top + box.height / 2 - 0.675 * ph,
+            transform: `rotate(${Math.sin(frame / 9) * 2.5}deg)`,
+            filter: "drop-shadow(0 20px 30px rgba(0,0,0,0.35))",
+          }}
+        />
+      )}
+      {/* Scan box */}
+      <div
+        style={{
+          position: "absolute",
+          ...box,
+          borderRadius: 14 * u,
+          border: `${3 * u}px solid ${read ? GREEN : WHITE}`,
+          boxShadow: `0 0 0 2000px rgba(0,0,0,0.25)${read ? `, 0 0 ${30 * u}px ${GREEN}` : ""}`,
+          background: `rgba(34,197,94,${flash})`,
+          boxSizing: "border-box",
+        }}
+      />
+      {reading && (
+        <div
+          style={{
+            position: "absolute",
+            left: box.left - 10 * u,
+            width: box.width + 20 * u,
+            top: laserY - 3 * u,
+            height: 7 * u,
+            borderRadius: 4 * u,
+            background: "#FF3B3B",
+            boxShadow: `0 0 ${18 * u}px ${7 * u}px rgba(239,68,68,0.85)`,
+          }}
+        />
+      )}
+      {read && (
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: box.top - 56 * u,
+            textAlign: "center",
+            fontSize: 34 * u,
+            fontWeight: 900,
+            color: LIME,
+            textShadow: "0 0 18px rgba(0,0,0,0.6)",
+            transform: `scale(${beepPop})`,
+          }}
+        >
+          BEEP! ✓
+        </div>
+      )}
+      {/* The scanned item drops toward the cart */}
+      {product && fly > 0 && fly < 1 && (
+        <Img
+          src={staticFile(product.img)}
+          style={{
+            position: "absolute",
+            width: 60 * u * (1 - fly * 0.5),
+            left: w / 2 - 30 * u + fly * (-w * 0.28),
+            top: box.top + box.height / 2 + fly * (h * 0.47 - box.top),
+            opacity: 1 - fly * 0.3,
+          }}
+        />
+      )}
+      <div style={{ position: "absolute", left: 24 * u, right: 24 * u, top: box.top + box.height + 14 * u, textAlign: "center", color: WHITE, fontSize: 13 * u, fontWeight: 600, textShadow: "0 1px 4px rgba(0,0,0,0.6)" }}>
+        Scan items one after another. Tap Done when finished.
+      </div>
+      <div style={{ position: "absolute", top: 16 * u, right: 16 * u, width: 36 * u, height: 36 * u, borderRadius: 18 * u, background: "rgba(0,0,0,0.5)", color: WHITE, fontSize: 18 * u, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        ✕
+      </div>
+      {/* Feedback, like the app shows after each scan */}
+      {last && (
+        <div
+          style={{
+            position: "absolute",
+            left: 12 * u,
+            right: 12 * u,
+            bottom: 96 * u,
+            background: "#16A34A",
+            color: WHITE,
+            borderRadius: 12 * u,
+            padding: `${10 * u}px ${14 * u}px`,
+            fontSize: 15 * u,
+            fontWeight: 800,
+            transform: `scale(${0.9 + 0.1 * countPop})`,
+          }}
+        >
+          ✓ {last.name} ×1 · ₱{last.price}.00
+        </div>
+      )}
+      <div
+        style={{
+          position: "absolute",
+          left: 12 * u,
+          right: 12 * u,
+          bottom: 16 * u,
+          height: 68 * u,
+          background: "#111827",
+          borderRadius: 16 * u,
+          padding: `0 ${14 * u}px`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          color: WHITE,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 12 * u, color: "rgba(255,255,255,0.7)" }}>{scanned} item(s) in cart</div>
+          <div style={{ fontSize: 22 * u, fontWeight: 900, display: "inline-block", transform: `scale(${0.85 + 0.15 * countPop})`, transformOrigin: "left center" }}>
+            ₱{total}.00
+          </div>
+        </div>
+        <div style={{ position: "relative", background: "#16A34A", borderRadius: 12 * u, padding: `${10 * u}px ${14 * u}px`, fontSize: 15 * u, fontWeight: 800 }}>
+          {scanned > 0 ? "Done — checkout" : "Done"}
+          {tap > 0 && tap < 1 && (
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: "50%",
+                width: 80 * u,
+                height: 80 * u,
+                marginLeft: -40 * u,
+                marginTop: -40 * u,
+                borderRadius: "50%",
+                border: `${4 * u}px solid ${WHITE}`,
+                transform: `scale(${0.3 + tap})`,
+                opacity: 1 - tap,
+              }}
+            />
+          )}
+        </div>
+      </div>
+      {/* After Done: the real cart screen from the app */}
+      <Img src={staticFile("scan-cart.png")} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: cart }} />
+    </div>
+  );
+}
+
+function ScanDemo() {
+  const landscape = useLandscape();
+  const frame = useCurrentFrame();
+  const { i, local, scanned } = scanState(frame);
+  const step = i < 0 ? (scanned === SCANS.length ? 3 : -1) : local < SCAN_BEEP ? 0 : local < SCAN_BEEP + 12 ? 1 : 2;
+  const steps = ["Point at the barcode", "Beep!", "Added to cart"];
+  const stageWidth = landscape ? 640 : 880;
+  const screenW = stageWidth * 0.68 * 0.94;
+  const text = (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: landscape ? "flex-start" : "center", gap: landscape ? 34 : 28 }}>
+      <FeatureText tag="Barcode scanner" title="Scan. Beep. Added." highlight={["Beep"]} lines={[]} landscape={landscape} />
+      <div style={{ display: "flex", flexDirection: landscape ? "column" : "row", gap: 16, flexWrap: "wrap", justifyContent: "center" }}>
+        {steps.map((label, k) => {
+          const on = step === k || step === 3;
+          return (
+            <div
+              key={label}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                padding: "14px 26px",
+                borderRadius: 999,
+                fontSize: landscape ? 40 : 34,
+                fontWeight: 800,
+                color: on ? "#052E16" : SOFT,
+                background: on ? `linear-gradient(90deg, ${GREEN}, ${LIME})` : "rgba(255,255,255,0.08)",
+                transform: `scale(${on ? 1.05 : 1})`,
+                boxShadow: on ? "0 0 40px rgba(163,230,53,0.45)" : undefined,
+              }}
+            >
+              <span style={{ fontWeight: 900 }}>{k + 1}</span>
+              {label}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+  const callouts: Callout[] = [
+    ...SCANS.map((p, k) => ({ icon: "✅", text: `${p.name} +₱${p.price}`, at: beepAt(k) })),
+    { icon: "🛒", text: "Total ₱48 · checkout", at: CHECKOUT_TAP + 8 },
+  ];
+  const stage = (
+    <PhoneStage screens={[<ScanScreen key="scan" w={screenW} />]} callouts={callouts} width={stageWidth} pulses={SCANS.map((_, k) => beepAt(k))} tilt={-4} />
+  );
+  if (landscape) {
+    return (
+      <AbsoluteFill>
+        <div style={{ position: "absolute", left: 130, top: 0, bottom: 0, width: 860, display: "flex", alignItems: "center" }}>{text}</div>
+        <div style={{ position: "absolute", right: 90, top: 40, width: 720, display: "flex", justifyContent: "center" }}>{stage}</div>
+      </AbsoluteFill>
+    );
+  }
+  return (
+    <AbsoluteFill style={{ alignItems: "center" }}>
+      <div style={{ marginTop: 170, padding: "0 50px" }}>{text}</div>
+      <div style={{ position: "absolute", top: 560, left: 0, right: 0, display: "flex", justifyContent: "center" }}>{stage}</div>
+    </AbsoluteFill>
   );
 }
 
@@ -851,7 +1055,6 @@ function Forecast() {
   if (landscape) {
     return (
       <AbsoluteFill>
-        <Corner index={7} />
         {chart}
         <div style={{ position: "absolute", left: 130, top: 0, bottom: 0, width: 920, display: "flex", alignItems: "center" }}>{text}</div>
         <div style={{ position: "absolute", right: 90, top: 100, width: 640, display: "flex", justifyContent: "center" }}>
@@ -862,7 +1065,6 @@ function Forecast() {
   }
   return (
     <AbsoluteFill style={{ alignItems: "center" }}>
-      <Corner index={7} />
       {chart}
       <div style={{ marginTop: 190, padding: "0 50px" }}>{text}</div>
       <div style={{ position: "absolute", top: 930, left: 0, right: 0, display: "flex", justifyContent: "center" }}>
@@ -887,7 +1089,6 @@ function Languages() {
   const phoneW = landscape ? 250 : 300;
   return (
     <AbsoluteFill style={{ alignItems: "center" }}>
-      <Corner index={9} />
       <div style={{ marginTop: landscape ? 100 : 210, padding: "0 60px", display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
         <Rise>
           <Tag size={landscape ? 30 : 34}>3 languages</Tag>
@@ -943,7 +1144,7 @@ function Trust() {
     { icon: "🚫", title: "No ads", text: "No account, no tracking" },
     { icon: "💾", title: "Backup file", text: "Move to a new phone" },
     { icon: "🎨", title: "Your style", text: "Light, dark, 8 colors" },
-    { icon: "🆓", title: "Free", text: "For every tindahan" },
+    { icon: "🧾", title: "Receipts", text: "Print or share" },
   ];
   return (
     <AbsoluteFill style={{ alignItems: "center", paddingTop: landscape ? 90 : 220 }}>
@@ -1016,7 +1217,7 @@ function Outro() {
             boxShadow: "0 0 70px rgba(163,230,53,0.6)",
           }}
         >
-          Download free for Android
+          Download now for Android
           <div
             style={{
               position: "absolute",
@@ -1030,7 +1231,7 @@ function Outro() {
         </div>
       </Rise>
       <Rise delay={38}>
-        <div style={{ fontSize: landscape ? 36 : 40, fontWeight: 700, color: SOFT }}>Offline · Private · Free</div>
+        <div style={{ fontSize: landscape ? 36 : 40, fontWeight: 700, color: SOFT }}>Offline · Private · Easy</div>
       </Rise>
     </AbsoluteFill>
   );

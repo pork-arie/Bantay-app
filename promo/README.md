@@ -1,6 +1,6 @@
 # Bantay promo video
 
-A ~62-second promotional video for Bantay with a voice-over, made with [Remotion](https://www.remotion.dev),
+A ~64-second promotional video for Bantay with a voice-over, made with [Remotion](https://www.remotion.dev),
 in two sizes:
 
 - **Vertical 1080×1920** (`BantayPromo`): Facebook Reels, TikTok, Instagram, phone screens
@@ -17,8 +17,9 @@ npm run render            # writes both videos to out/
 
 - `src/BantayPromo.tsx`: all scenes. `DEFS` is the timeline; each scene lasts as long as its voice line.
 - `public/*.png`: real screenshots of Bantay with sample data.
-- `public/scan.mp4`: a real screen recording of Bantay's barcode scanner reading three barcodes from a
-  (simulated) camera and adding the products to the cart.
+- The scanning scene (`ScanDemo`) is a step-by-step demo of how scanning works: a product comes into view,
+  a red laser sweeps the barcode, it beeps, the item drops into the cart, and Done opens Bantay's real cart
+  screen (`public/scan-cart.png`). The packages (`public/pkg-*.png`) are generic, with no brand logos.
 - `public/voice/*.wav` + `src/voice.json`: the voice-over, generated with the open-source
   [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) voice (Apache-2.0). English lines use the
   `af_heart` voice; the Filipino and Waray greetings use the Spanish `ef_dora` voice, which reads them naturally.

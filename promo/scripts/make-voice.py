@@ -37,7 +37,7 @@ LINES = [
     ("lang_war", ES, "Waray. Maupaynga adlaw!"),
     ("trust", EN, "Works offline. Encrypted. No ads."),
     ("outro", ES, "Bantay. Bantay sa tindahan mo."),
-    ("cta", EN, "Download it free for Android."),
+    ("cta", EN, "Download it now for Android."),
 ]
 
 kokoro = Kokoro(sys.argv[1], sys.argv[2])
