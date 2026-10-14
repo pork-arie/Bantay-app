@@ -2,48 +2,72 @@ import { useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
-  Modal,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-import { colors, peso, radius, shadow } from "@/constants/theme";
-import { CATEGORIES, PRODUCTS, isLowStock, type Category, type Product } from "@/data/sample";
+import BottomSheet from "@/components/BottomSheet";
+import { colors, paymentStyles, peso, radius, shadow } from "@/constants/theme";
+import {
+  CATEGORIES,
+  PAYMENT_LABELS,
+  type Category,
+  type PaymentMethod,
+  type Product,
+  type Sale,
+} from "@/data/sample";
+import { success, tap, warning } from "@/store/haptics";
+import { balanceOf, formatDate, formatTime, isLowStock } from "@/store/selectors";
+import { useStore } from "@/store/StoreProvider";
 
-type PaymentType = "cash" | "utang";
+const PAYMENTS: PaymentMethod[] = ["cash", "gcash", "utang"];
+const NEW_CUSTOMER = "new";
 
 export default function Benta() {
-  const insets = useSafeAreaInsets();
+  const { products, debtors, settings, checkout } = useStore();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<Category>("Lahat");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cartOpen, setCartOpen] = useState(false);
-  const [payment, setPayment] = useState<PaymentType>("cash");
-  const [customer, setCustomer] = useState("");
+  const [payment, setPayment] = useState<PaymentMethod>("cash");
+  const [received, setReceived] = useState("");
+  const [gcashRef, setGcashRef] = useState("");
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [newCustomer, setNewCustomer] = useState("");
+  const [receipt, setReceipt] = useState<Sale | null>(null);
 
-  const products = useMemo(() => {
+  const visibleProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return PRODUCTS.filter(
+    return products.filter(
       (p) =>
         (category === "Lahat" || p.category === category) &&
         (q === "" || p.name.toLowerCase().includes(q)),
     );
-  }, [search, category]);
+  }, [products, search, category]);
 
-  const cartItems = PRODUCTS.filter((p) => cart[p.id]).map((p) => ({
-    product: p,
-    qty: cart[p.id],
-  }));
+  const cartItems = products
+    .filter((p) => cart[p.id])
+    .map((p) => ({ product: p, qty: cart[p.id] }));
   const itemCount = cartItems.reduce((sum, i) => sum + i.qty, 0);
   const total = cartItems.reduce((sum, i) => sum + i.qty * i.product.price, 0);
 
+  const receivedAmount = parseFloat(received) || 0;
+  const change = receivedAmount - total;
+  const selectedDebtor = debtors.find((d) => d.id === customerId);
+  const newBalance = (selectedDebtor ? balanceOf(selectedDebtor) : 0) + total;
+  const overLimit = selectedDebtor ? newBalance > selectedDebtor.limit : false;
+  const quickCash = [total, 100, 200, 500, 1000].filter(
+    (v, i, all) => v >= total && all.indexOf(v) === i,
+  );
+
   function changeQty(product: Product, delta: number) {
+    tap();
     setCart((prev) => {
       const next = Math.min(Math.max((prev[product.id] ?? 0) + delta, 0), product.stock);
       const updated = { ...prev };
@@ -55,30 +79,67 @@ export default function Benta() {
 
   function resetSale() {
     setCart({});
-    setCustomer("");
     setPayment("cash");
-    setCartOpen(false);
+    setReceived("");
+    setGcashRef("");
+    setCustomerId(null);
+    setNewCustomer("");
   }
 
-  function checkout() {
-    if (payment === "utang" && customer.trim() === "") {
-      Alert.alert("Kulang", "Ilagay ang pangalan ng customer para sa utang.");
+  function finish() {
+    if (payment === "cash" && received !== "" && receivedAmount < total) {
+      warning();
+      Alert.alert("Kulang ang bayad", `Kulang pa ng ${peso(total - receivedAmount)}.`);
       return;
     }
-    const who = payment === "utang" ? ` kay ${customer.trim()}` : "";
-    Alert.alert(
-      "Tapos na ang benta",
-      `${itemCount} item${itemCount > 1 ? "s" : ""} · ${peso(total)}${
-        payment === "utang" ? ` (utang${who})` : " (cash)"
-      }`,
-    );
+    if (payment === "utang" && !customerId) {
+      warning();
+      Alert.alert("Kulang", "Pumili o magdagdag ng customer para sa utang.");
+      return;
+    }
+    if (payment === "utang" && customerId === NEW_CUSTOMER && newCustomer.trim() === "") {
+      warning();
+      Alert.alert("Kulang", "Ilagay ang pangalan ng bagong customer.");
+      return;
+    }
+
+    const sale = checkout({
+      cart: cartItems.map((i) => ({ productId: i.product.id, qty: i.qty })),
+      payment,
+      customerId: customerId && customerId !== NEW_CUSTOMER ? customerId : undefined,
+      newCustomerName: customerId === NEW_CUSTOMER ? newCustomer.trim() : undefined,
+      gcashRef: payment === "gcash" ? gcashRef.trim() || undefined : undefined,
+      cashReceived: payment === "cash" && received !== "" ? receivedAmount : undefined,
+    });
+    success();
+    setCartOpen(false);
     resetSale();
+    setReceipt(sale);
+  }
+
+  function shareReceipt(sale: Sale) {
+    const lines = [
+      settings.storeName || "Bantay Store",
+      `${formatDate(sale.date)} · ${formatTime(sale.date)}`,
+      "------------------------",
+      ...sale.items.map((it) => `${it.qty} x ${it.name}  ${peso(it.price * it.qty)}`),
+      "------------------------",
+      `TOTAL: ${peso(sale.total)}`,
+      `Bayad: ${PAYMENT_LABELS[sale.payment]}`,
+      ...(sale.cashReceived !== undefined
+        ? [`Natanggap: ${peso(sale.cashReceived)}`, `Sukli: ${peso(sale.cashReceived - sale.total)}`]
+        : []),
+      ...(sale.gcashRef ? [`GCash Ref: ${sale.gcashRef}`] : []),
+      ...(sale.customerName ? [`Customer: ${sale.customerName}`] : []),
+      "",
+      "Salamat po! 🙏",
+    ];
+    Share.share({ message: lines.join("\n") });
   }
 
   function renderProduct({ item }: { item: Product }) {
     const qty = cart[item.id] ?? 0;
     const outOfStock = item.stock === 0;
-    const lowStock = isLowStock(item);
 
     return (
       <Pressable
@@ -87,6 +148,7 @@ export default function Benta() {
         style={({ pressed }) => [
           styles.product,
           qty > 0 && styles.productSelected,
+          outOfStock && { opacity: 0.5 },
           pressed && styles.pressed,
         ]}
       >
@@ -102,7 +164,7 @@ export default function Benta() {
           {item.name}
         </Text>
         <Text style={styles.productPrice}>{peso(item.price)}</Text>
-        <Text style={[styles.productStock, lowStock && { color: colors.orange }]}>
+        <Text style={[styles.productStock, isLowStock(item) && { color: colors.orange }]}>
           {outOfStock ? "Ubos na" : `${item.stock} natitira`}
         </Text>
       </Pressable>
@@ -152,7 +214,7 @@ export default function Benta() {
 
       {/* Product grid */}
       <FlatList
-        data={products}
+        data={visibleProducts}
         keyExtractor={(p) => p.id}
         renderItem={renderProduct}
         numColumns={2}
@@ -181,109 +243,284 @@ export default function Benta() {
         </Pressable>
       )}
 
-      {/* Cart sheet */}
-      <Modal
-        visible={cartOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setCartOpen(false)}
-      >
-        <View style={styles.backdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setCartOpen(false)} />
-          <View style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}>
-            <View style={styles.handle} />
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Cart</Text>
-              <Pressable onPress={() => setCart({})} hitSlop={8}>
-                <Text style={styles.clearText}>I-clear</Text>
-              </Pressable>
-            </View>
-
-            <ScrollView style={{ maxHeight: 260 }}>
-              {cartItems.map(({ product, qty }) => (
-                <View key={product.id} style={styles.cartRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.cartName}>{product.name}</Text>
-                    <Text style={styles.cartSub}>
-                      {peso(product.price)} × {qty}
-                    </Text>
-                  </View>
-                  <View style={styles.stepper}>
-                    <Pressable onPress={() => changeQty(product, -1)} style={styles.stepBtn}>
-                      <Ionicons name="remove" size={16} color={colors.text} />
-                    </Pressable>
-                    <Text style={styles.stepQty}>{qty}</Text>
-                    <Pressable
-                      onPress={() => changeQty(product, 1)}
-                      disabled={qty >= product.stock}
-                      style={[styles.stepBtn, qty >= product.stock && { opacity: 0.4 }]}
-                    >
-                      <Ionicons name="add" size={16} color={colors.text} />
-                    </Pressable>
-                  </View>
-                  <Text style={styles.cartLineTotal}>{peso(product.price * qty)}</Text>
-                </View>
-              ))}
-              {cartItems.length === 0 && (
-                <Text style={[styles.emptyText, { textAlign: "center", marginVertical: 24 }]}>
-                  Walang laman ang cart
+      {/* Cart & payment */}
+      <BottomSheet visible={cartOpen} title="Cart" onClose={() => setCartOpen(false)}>
+        <ScrollView keyboardShouldPersistTaps="handled">
+          {cartItems.map(({ product, qty }) => (
+            <View key={product.id} style={styles.cartRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cartName}>{product.name}</Text>
+                <Text style={styles.cartSub}>
+                  {peso(product.price)} × {qty}
                 </Text>
-              )}
-            </ScrollView>
-
-            {/* Payment type */}
-            <Text style={styles.label}>Paraan ng bayad</Text>
-            <View style={styles.segment}>
-              {(["cash", "utang"] as const).map((p) => {
-                const active = payment === p;
-                return (
-                  <Pressable
-                    key={p}
-                    onPress={() => setPayment(p)}
-                    style={[styles.segmentBtn, active && styles.segmentActive]}
-                  >
-                    <Ionicons
-                      name={p === "cash" ? "cash-outline" : "time-outline"}
-                      size={16}
-                      color={active ? "#fff" : colors.muted}
-                    />
-                    <Text style={[styles.segmentText, active && { color: "#fff" }]}>
-                      {p === "cash" ? "Cash" : "Utang"}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              </View>
+              <View style={styles.stepper}>
+                <Pressable onPress={() => changeQty(product, -1)} style={styles.stepBtn}>
+                  <Ionicons name="remove" size={16} color={colors.text} />
+                </Pressable>
+                <Text style={styles.stepQty}>{qty}</Text>
+                <Pressable
+                  onPress={() => changeQty(product, 1)}
+                  disabled={qty >= product.stock}
+                  style={[styles.stepBtn, qty >= product.stock && { opacity: 0.4 }]}
+                >
+                  <Ionicons name="add" size={16} color={colors.text} />
+                </Pressable>
+              </View>
+              <Text style={styles.cartLineTotal}>{peso(product.price * qty)}</Text>
             </View>
+          ))}
+          {cartItems.length === 0 && (
+            <Text style={[styles.emptyText, { textAlign: "center", marginVertical: 24 }]}>
+              Walang laman ang cart
+            </Text>
+          )}
 
-            {payment === "utang" && (
+          {/* Payment method */}
+          <Text style={styles.label}>Paraan ng bayad</Text>
+          <View style={styles.payRow}>
+            {PAYMENTS.map((p) => {
+              const active = payment === p;
+              const style = paymentStyles[p];
+              return (
+                <Pressable
+                  key={p}
+                  onPress={() => setPayment(p)}
+                  style={[
+                    styles.payBtn,
+                    active && { backgroundColor: style.fg, borderColor: style.fg },
+                  ]}
+                >
+                  <Ionicons name={style.icon} size={18} color={active ? "#fff" : style.fg} />
+                  <Text style={[styles.payText, { color: active ? "#fff" : colors.text }]}>
+                    {PAYMENT_LABELS[p]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {payment === "cash" && (
+            <View>
+              <Text style={styles.label}>Natanggap na pera</Text>
               <TextInput
-                value={customer}
-                onChangeText={setCustomer}
-                placeholder="Pangalan ng customer"
+                value={received}
+                onChangeText={setReceived}
+                placeholder={peso(total)}
                 placeholderTextColor={colors.muted}
+                keyboardType="decimal-pad"
                 style={styles.input}
               />
-            )}
-
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Kabuuan</Text>
-              <Text style={styles.totalValue}>{peso(total)}</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={[styles.chips, { marginTop: 10 }]}
+              >
+                {quickCash.map((v) => (
+                  <Pressable
+                    key={v}
+                    onPress={() => setReceived(String(v))}
+                    style={[styles.chip, receivedAmount === v && styles.chipActive]}
+                  >
+                    <Text
+                      style={[styles.chipText, receivedAmount === v && styles.chipTextActive]}
+                    >
+                      {v === total ? "Eksakto" : peso(v)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              {received !== "" && (
+                <View style={[styles.infoBox, change < 0 && { backgroundColor: colors.redSoft }]}>
+                  <Text style={styles.infoLabel}>{change < 0 ? "Kulang pa" : "Sukli"}</Text>
+                  <Text
+                    style={[
+                      styles.infoValue,
+                      { color: change < 0 ? colors.red : colors.primary },
+                    ]}
+                  >
+                    {peso(Math.abs(change))}
+                  </Text>
+                </View>
+              )}
             </View>
+          )}
 
-            <Pressable
-              onPress={checkout}
-              disabled={cartItems.length === 0}
-              style={({ pressed }) => [
-                styles.checkout,
-                cartItems.length === 0 && { opacity: 0.4 },
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.checkoutText}>Tapusin ang benta</Text>
-            </Pressable>
+          {payment === "gcash" && (
+            <View>
+              <View style={[styles.infoBox, { backgroundColor: colors.gcashSoft }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.infoLabel}>Ipadala sa GCash number</Text>
+                  <Text style={[styles.infoValue, { color: colors.gcash }]}>
+                    {settings.gcashNumber || "Wala pa — ilagay sa Settings"}
+                  </Text>
+                </View>
+                <Ionicons name="phone-portrait-outline" size={26} color={colors.gcash} />
+              </View>
+              <Text style={styles.label}>Reference no. (optional)</Text>
+              <TextInput
+                value={gcashRef}
+                onChangeText={setGcashRef}
+                placeholder="hal. 1234 567 890123"
+                placeholderTextColor={colors.muted}
+                keyboardType="number-pad"
+                style={styles.input}
+              />
+              <Text style={styles.hint}>
+                Tingnan muna ang GCash app kung pumasok na ang bayad bago tapusin.
+              </Text>
+            </View>
+          )}
+
+          {payment === "utang" && (
+            <View>
+              <Text style={styles.label}>Customer</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chips}
+              >
+                <Pressable
+                  onPress={() => setCustomerId(NEW_CUSTOMER)}
+                  style={[styles.chip, customerId === NEW_CUSTOMER && styles.chipActive]}
+                >
+                  <Ionicons
+                    name="add"
+                    size={14}
+                    color={customerId === NEW_CUSTOMER ? "#fff" : colors.muted}
+                  />
+                  <Text
+                    style={[
+                      styles.chipText,
+                      customerId === NEW_CUSTOMER && styles.chipTextActive,
+                    ]}
+                  >
+                    Bago
+                  </Text>
+                </Pressable>
+                {debtors.map((d) => (
+                  <Pressable
+                    key={d.id}
+                    onPress={() => setCustomerId(d.id)}
+                    style={[styles.chip, customerId === d.id && styles.chipActive]}
+                  >
+                    <Text style={[styles.chipText, customerId === d.id && styles.chipTextActive]}>
+                      {d.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
+              {customerId === NEW_CUSTOMER && (
+                <TextInput
+                  value={newCustomer}
+                  onChangeText={setNewCustomer}
+                  placeholder="Pangalan ng bagong customer"
+                  placeholderTextColor={colors.muted}
+                  style={[styles.input, { marginTop: 10 }]}
+                />
+              )}
+
+              {selectedDebtor && (
+                <View
+                  style={[
+                    styles.infoBox,
+                    { backgroundColor: overLimit ? colors.redSoft : colors.orangeSoft },
+                  ]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.infoLabel}>Magiging utang</Text>
+                    <Text
+                      style={[
+                        styles.infoValue,
+                        { color: overLimit ? colors.red : colors.orange },
+                      ]}
+                    >
+                      {peso(newBalance)}
+                    </Text>
+                    <Text style={styles.hint}>Limit: {peso(selectedDebtor.limit)}</Text>
+                  </View>
+                  {overLimit && <Ionicons name="warning" size={26} color={colors.red} />}
+                </View>
+              )}
+            </View>
+          )}
+
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Kabuuan</Text>
+            <Text style={styles.totalValue}>{peso(total)}</Text>
           </View>
-        </View>
-      </Modal>
+
+          <Pressable
+            onPress={finish}
+            disabled={cartItems.length === 0}
+            style={({ pressed }) => [
+              styles.checkout,
+              overLimit && payment === "utang" && { backgroundColor: colors.red },
+              cartItems.length === 0 && { opacity: 0.4 },
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.checkoutText}>
+              {overLimit && payment === "utang"
+                ? "Lampas sa limit — ituloy pa rin"
+                : "Tapusin ang benta"}
+            </Text>
+          </Pressable>
+        </ScrollView>
+      </BottomSheet>
+
+      {/* Receipt */}
+      <BottomSheet visible={receipt !== null} title="Resibo" onClose={() => setReceipt(null)}>
+        {receipt && (
+          <View>
+            <View style={styles.receiptCheck}>
+              <Ionicons name="checkmark-circle" size={48} color={colors.primary} />
+              <Text style={styles.receiptTotal}>{peso(receipt.total)}</Text>
+              <Text style={styles.cartSub}>
+                {PAYMENT_LABELS[receipt.payment]} · {formatTime(receipt.date)}
+              </Text>
+            </View>
+            {receipt.items.map((it) => (
+              <View key={it.productId} style={styles.receiptRow}>
+                <Text style={styles.receiptItem}>
+                  {it.qty} × {it.name}
+                </Text>
+                <Text style={styles.receiptItem}>{peso(it.price * it.qty)}</Text>
+              </View>
+            ))}
+            {receipt.cashReceived !== undefined && (
+              <View style={[styles.receiptRow, styles.receiptDivider]}>
+                <Text style={styles.receiptStrong}>Sukli</Text>
+                <Text style={[styles.receiptStrong, { color: colors.primary }]}>
+                  {peso(receipt.cashReceived - receipt.total)}
+                </Text>
+              </View>
+            )}
+            {receipt.gcashRef && (
+              <View style={[styles.receiptRow, styles.receiptDivider]}>
+                <Text style={styles.receiptItem}>GCash Ref</Text>
+                <Text style={styles.receiptItem}>{receipt.gcashRef}</Text>
+              </View>
+            )}
+            {receipt.customerName && (
+              <View style={[styles.receiptRow, styles.receiptDivider]}>
+                <Text style={styles.receiptItem}>Inilista kay</Text>
+                <Text style={styles.receiptStrong}>{receipt.customerName}</Text>
+              </View>
+            )}
+            <View style={styles.receiptButtons}>
+              <Pressable onPress={() => shareReceipt(receipt)} style={styles.secondaryBtn}>
+                <Ionicons name="share-outline" size={18} color={colors.text} />
+                <Text style={styles.secondaryText}>I-share</Text>
+              </Pressable>
+              <Pressable onPress={() => setReceipt(null)} style={styles.newSaleBtn}>
+                <Text style={styles.checkoutText}>Bagong benta</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+      </BottomSheet>
     </View>
   );
 }
@@ -327,6 +564,9 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -456,41 +696,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
   },
-  backdrop: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.4)",
-  },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-  },
-  handle: {
-    alignSelf: "center",
-    width: 40,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: colors.border,
-    marginBottom: 12,
-  },
-  sheetHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  sheetTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  clearText: {
-    color: colors.red,
-    fontWeight: "600",
-  },
   cartRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -541,31 +746,25 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
   },
-  segment: {
+  payRow: {
     flexDirection: "row",
-    backgroundColor: colors.background,
-    borderRadius: radius.md,
-    padding: 4,
-    gap: 4,
+    gap: 8,
   },
-  segmentBtn: {
+  payBtn: {
     flex: 1,
-    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: radius.sm,
+    gap: 4,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  segmentActive: {
-    backgroundColor: colors.dark,
-  },
-  segmentText: {
-    fontWeight: "600",
-    color: colors.muted,
+  payText: {
+    fontWeight: "700",
+    fontSize: 13,
   },
   input: {
-    marginTop: 10,
     height: 46,
     borderRadius: radius.md,
     borderWidth: 1,
@@ -573,6 +772,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     fontSize: 15,
     color: colors.text,
+  },
+  hint: {
+    fontSize: 12,
+    color: colors.muted,
+    marginTop: 6,
+  },
+  infoBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.md,
+    padding: 14,
+    marginTop: 12,
+  },
+  infoLabel: {
+    fontSize: 13,
+    color: colors.muted,
+  },
+  infoValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginTop: 2,
   },
   totalRow: {
     flexDirection: "row",
@@ -600,5 +822,61 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "700",
+  },
+  receiptCheck: {
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 12,
+  },
+  receiptTotal: {
+    fontSize: 30,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  receiptRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 6,
+  },
+  receiptDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    marginTop: 4,
+    paddingTop: 10,
+  },
+  receiptItem: {
+    fontSize: 14,
+    color: colors.text,
+  },
+  receiptStrong: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  receiptButtons: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 18,
+  },
+  secondaryBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: radius.md,
+    backgroundColor: colors.background,
+    paddingVertical: 16,
+  },
+  secondaryText: {
+    fontWeight: "700",
+    color: colors.text,
+  },
+  newSaleBtn: {
+    flex: 2,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: 16,
+    alignItems: "center",
   },
 });

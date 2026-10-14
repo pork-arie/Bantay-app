@@ -1,15 +1,29 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-import { avatarTints, colors, initials, peso, radius, shadow } from "@/constants/theme";
+import BottomSheet from "@/components/BottomSheet";
 import {
-  PRODUCTS,
-  TOTAL_UTANG,
-  TRANSACTIONS,
-  WEEKLY_SALES,
+  avatarTints,
+  colors,
+  initials,
+  paymentStyles,
+  peso,
+  radius,
+  shadow,
+} from "@/constants/theme";
+import { PAYMENT_LABELS } from "@/data/sample";
+import {
+  formatTime,
   isLowStock,
-} from "@/data/sample";
+  isToday,
+  smartTip,
+  summarize,
+  totalUtang,
+  trend,
+} from "@/store/selectors";
+import { useStore } from "@/store/StoreProvider";
 
 type StatCardProps = {
   label: string;
@@ -39,15 +53,29 @@ function StatCard({ label, value, icon, color, tint, onPress }: StatCardProps) {
 
 export default function Index() {
   const router = useRouter();
+  const { products, sales, debtors, settings, ready, updateSettings } = useStore();
+  const [setupDismissed, setSetupDismissed] = useState(false);
+  const [setup, setSetup] = useState({ storeName: "", ownerName: "", gcashNumber: "" });
 
-  const todaySales = TRANSACTIONS.reduce((sum, t) => sum + t.total, 0);
-  const lowStockItems = PRODUCTS.filter(isLowStock).sort(
-    (a, b) => a.stock / a.min - b.stock / b.min,
-  );
-  const lowStock = lowStockItems.length;
-  const maxSale = Math.max(...WEEKLY_SALES.map((d) => d.total));
-  const weekTotal = WEEKLY_SALES.reduce((sum, d) => sum + d.total, 0);
-  const todayIndex = WEEKLY_SALES.length - 1;
+  const todaySales = sales.filter((s) => isToday(s.date));
+  const today = summarize(todaySales);
+  const lowStockItems = products
+    .filter(isLowStock)
+    .sort((a, b) => a.stock / a.min - b.stock / b.min);
+  const week = trend(sales, "week");
+  const maxSale = Math.max(...week.map((d) => d.total), 1);
+  const weekTotal = week.reduce((sum, d) => sum + d.total, 0);
+  const tip = smartTip(products, sales);
+
+  const showSetup = ready && settings.ownerName === "" && !setupDismissed;
+
+  function finishSetup() {
+    updateSettings({
+      storeName: setup.storeName.trim(),
+      ownerName: setup.ownerName.trim() || "Kaibigan",
+      gcashNumber: setup.gcashNumber.trim(),
+    });
+  }
 
   return (
     <ScrollView
@@ -58,8 +86,12 @@ export default function Index() {
       {/* Header */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.smalltext}>Magandang araw,</Text>
-          <Text style={styles.bigtext}>Name san User ddi</Text>
+          <Text style={styles.smalltext}>
+            {settings.storeName || "Magandang araw,"}
+          </Text>
+          <Text style={styles.bigtext}>
+            {settings.ownerName ? `Hi, ${settings.ownerName}!` : "Hi!"}
+          </Text>
         </View>
         <Pressable
           onPress={() => router.navigate("/(tabs)/Benta")}
@@ -70,20 +102,28 @@ export default function Index() {
         </Pressable>
       </View>
 
+      {/* Smart tip */}
+      <View style={styles.tip}>
+        <View style={styles.tipIcon}>
+          <Ionicons name="bulb-outline" size={18} color={colors.gcash} />
+        </View>
+        <Text style={styles.tipText}>{tip}</Text>
+      </View>
+
       {/* Stat cards */}
       <View style={styles.grid}>
         <View style={styles.row}>
           <StatCard
             label="Benta ngayon"
-            value={peso(todaySales)}
+            value={peso(today.total)}
             icon="cash-outline"
             color={colors.primary}
             tint={colors.primarySoft}
-            onPress={() => router.navigate("/(tabs)/Benta")}
+            onPress={() => router.navigate("/(tabs)/Reports")}
           />
           <StatCard
             label="Transaksyon"
-            value={String(TRANSACTIONS.length)}
+            value={String(today.transactions)}
             icon="receipt-outline"
             color={colors.blue}
             tint={colors.blueSoft}
@@ -93,7 +133,7 @@ export default function Index() {
         <View style={styles.row}>
           <StatCard
             label="Paubos na stock"
-            value={String(lowStock)}
+            value={String(lowStockItems.length)}
             icon="alert-circle-outline"
             color={colors.orange}
             tint={colors.orangeSoft}
@@ -101,7 +141,7 @@ export default function Index() {
           />
           <StatCard
             label="Kabuuang utang"
-            value={peso(TOTAL_UTANG)}
+            value={peso(totalUtang(debtors))}
             icon="people-outline"
             color={colors.red}
             tint={colors.redSoft}
@@ -121,23 +161,23 @@ export default function Index() {
         </View>
 
         <View style={styles.chart}>
-          {WEEKLY_SALES.map((d, i) => {
-            const isToday = i === todayIndex;
+          {week.map((d, i) => {
+            const isLast = i === week.length - 1;
             return (
-              <View key={d.day} style={styles.barColumn}>
+              <View key={i} style={styles.barColumn}>
                 <View style={styles.barTrack}>
                   <View
                     style={[
                       styles.bar,
                       {
                         height: `${(d.total / maxSale) * 100}%`,
-                        backgroundColor: isToday ? colors.primary : colors.primarySoft,
+                        backgroundColor: isLast ? colors.primary : colors.primarySoft,
                       },
                     ]}
                   />
                 </View>
-                <Text style={[styles.barLabel, isToday && styles.barLabelToday]}>
-                  {d.day}
+                <Text style={[styles.barLabel, isLast && styles.barLabelToday]}>
+                  {d.label}
                 </Text>
               </View>
             );
@@ -208,43 +248,75 @@ export default function Index() {
           </Pressable>
         </View>
 
-        {TRANSACTIONS.map((t, i) => {
-          const isUtang = t.type === "utang";
+        {todaySales.length === 0 && (
+          <Text style={styles.sectionSub}>Wala pang benta ngayong araw.</Text>
+        )}
+        {todaySales.slice(0, 5).map((s, i, list) => {
+          const style = paymentStyles[s.payment];
+          const count = s.items.reduce((sum, it) => sum + it.qty, 0);
           return (
-            <View
-              key={t.id}
-              style={[styles.txRow, i < TRANSACTIONS.length - 1 && styles.txDivider]}
-            >
-              <View
-                style={[
-                  styles.txIcon,
-                  { backgroundColor: isUtang ? colors.orangeSoft : colors.primarySoft },
-                ]}
-              >
-                <Ionicons
-                  name={isUtang ? "time-outline" : "checkmark"}
-                  size={18}
-                  color={isUtang ? colors.orange : colors.primary}
-                />
+            <View key={s.id} style={[styles.txRow, i < list.length - 1 && styles.txDivider]}>
+              <View style={[styles.txIcon, { backgroundColor: style.bg }]}>
+                <Ionicons name={style.icon} size={18} color={style.fg} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.txName}>{t.customer}</Text>
+                <Text style={styles.txName}>{s.customerName ?? "Walk-in"}</Text>
                 <Text style={styles.txMeta}>
-                  {t.items} item{t.items > 1 ? "s" : ""} · {t.time}
+                  {count} item{count > 1 ? "s" : ""} · {formatTime(s.date)}
                 </Text>
               </View>
               <View style={{ alignItems: "flex-end" }}>
-                <Text style={styles.txTotal}>{peso(t.total)}</Text>
-                <Text
-                  style={[styles.txBadge, { color: isUtang ? colors.orange : colors.primary }]}
-                >
-                  {isUtang ? "Utang" : "Cash"}
+                <Text style={styles.txTotal}>{peso(s.total)}</Text>
+                <Text style={[styles.txBadge, { color: style.fg }]}>
+                  {PAYMENT_LABELS[s.payment]}
                 </Text>
               </View>
             </View>
           );
         })}
       </View>
+
+      {/* First-launch setup */}
+      <BottomSheet
+        visible={showSetup}
+        title="Maligayang pagdating! 👋"
+        onClose={() => setSetupDismissed(true)}
+      >
+        <Text style={styles.setupIntro}>
+          Ilagay ang ilang detalye ng tindahan. Mababago mo ito sa Settings.
+        </Text>
+        <Text style={styles.label}>Pangalan ng tindahan</Text>
+        <TextInput
+          value={setup.storeName}
+          onChangeText={(storeName) => setSetup({ ...setup, storeName })}
+          placeholder="hal. Tindahan ni Aling Rosa"
+          placeholderTextColor={colors.muted}
+          style={styles.input}
+        />
+        <Text style={styles.label}>Pangalan mo</Text>
+        <TextInput
+          value={setup.ownerName}
+          onChangeText={(ownerName) => setSetup({ ...setup, ownerName })}
+          placeholder="hal. Rosa"
+          placeholderTextColor={colors.muted}
+          style={styles.input}
+        />
+        <Text style={styles.label}>GCash number (optional)</Text>
+        <TextInput
+          value={setup.gcashNumber}
+          onChangeText={(gcashNumber) => setSetup({ ...setup, gcashNumber })}
+          placeholder="09XX XXX XXXX"
+          placeholderTextColor={colors.muted}
+          keyboardType="phone-pad"
+          style={styles.input}
+        />
+        <Pressable
+          onPress={finishSetup}
+          style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
+        >
+          <Text style={styles.primaryBtnText}>Simulan</Text>
+        </Pressable>
+      </BottomSheet>
     </ScrollView>
   );
 }
@@ -284,6 +356,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     ...shadow,
+  },
+  tip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: colors.gcashSoft,
+    borderRadius: radius.md,
+    padding: 14,
+  },
+  tipIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tipText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
   },
   grid: {
     gap: 12,
@@ -449,5 +543,38 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     marginTop: 2,
+  },
+  setupIntro: {
+    fontSize: 14,
+    color: colors.muted,
+    lineHeight: 20,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.muted,
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  input: {
+    height: 46,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    color: colors.text,
+  },
+  primaryBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: 16,
+    alignItems: "center",
+    marginTop: 20,
+  },
+  primaryBtnText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });

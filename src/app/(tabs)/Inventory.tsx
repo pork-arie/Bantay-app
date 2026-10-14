@@ -4,6 +4,7 @@ import {
   FlatList,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -13,7 +14,10 @@ import { Ionicons } from "@expo/vector-icons";
 
 import BottomSheet from "@/components/BottomSheet";
 import { avatarTints, colors, initials, peso, radius, shadow } from "@/constants/theme";
-import { CATEGORIES, PRODUCTS, isLowStock, type Category, type Product } from "@/data/sample";
+import { CATEGORIES, type Category, type Product } from "@/data/sample";
+import { success } from "@/store/haptics";
+import { daysLeft, isLowStock, restockList } from "@/store/selectors";
+import { useStore } from "@/store/StoreProvider";
 
 type Filter = Category | "Paubos";
 type Sheet = { type: "restock"; product: Product } | { type: "add" } | null;
@@ -27,8 +31,14 @@ function stockColor(p: Product) {
   return colors.primary;
 }
 
+function forecastText(days: number | null) {
+  if (days === null) return "Walang nabenta nitong nakaraang 7 araw.";
+  if (days === 0) return "Mauubos na ngayong araw sa bilis ng benta.";
+  return `Tatagal pa ng ~${days} araw sa bilis ng benta ngayon.`;
+}
+
 export default function Inventory() {
-  const [products, setProducts] = useState<Product[]>(PRODUCTS);
+  const { products, sales, settings, restock, addProduct } = useStore();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("Lahat");
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -64,9 +74,8 @@ export default function Inventory() {
       Alert.alert("Kulang", "Ilagay kung ilan ang idadagdag.");
       return;
     }
-    setProducts((prev) =>
-      prev.map((p) => (p.id === product.id ? { ...p, stock: p.stock + qty } : p)),
-    );
+    restock(product.id, qty);
+    success();
     setSheet(null);
   }
 
@@ -85,19 +94,25 @@ export default function Inventory() {
       Alert.alert("Kulang", "Ilagay ang pangalan, presyo at puhunan.");
       return;
     }
-    setProducts((prev) => [
-      {
-        id: String(Date.now()),
-        name: form.name.trim(),
-        price,
-        cost,
-        stock,
-        min,
-        category: formCategory,
-      },
-      ...prev,
-    ]);
+    addProduct({ name: form.name.trim(), price, cost, stock, min, category: formCategory });
+    success();
     setSheet(null);
+  }
+
+  function shareRestockList() {
+    const list = restockList(products);
+    if (list.length === 0) {
+      Alert.alert("Ayos!", "Wala pang kailangang bilhin.");
+      return;
+    }
+    const lines = [
+      `🛒 Bibilhin para sa ${settings.storeName || "tindahan"}`,
+      "",
+      ...list.map(({ product, qty }) => `☐ ${product.name} — ${qty} pcs`),
+      "",
+      `Tantiyang gastos: ${peso(list.reduce((sum, { product, qty }) => sum + product.cost * qty, 0))}`,
+    ];
+    Share.share({ message: lines.join("\n") });
   }
 
   function renderItem({ item }: { item: Product }) {
@@ -165,6 +180,14 @@ export default function Inventory() {
                   <Text style={styles.summaryPillText}>{outCount} ubos</Text>
                 </View>
               </View>
+              <Pressable
+                onPress={shareRestockList}
+                style={({ pressed }) => [styles.restockListBtn, pressed && styles.pressed]}
+              >
+                <Ionicons name="list" size={18} color={colors.dark} />
+                <Text style={styles.restockListText}>Listahan ng bibilhin</Text>
+                <Ionicons name="share-outline" size={16} color={colors.dark} />
+              </Pressable>
             </View>
 
             {/* Search */}
@@ -251,6 +274,13 @@ export default function Inventory() {
                   {peso(sheet.product.price - sheet.product.cost)}
                 </Text>
               </View>
+            </View>
+
+            <View style={styles.forecast}>
+              <Ionicons name="time-outline" size={16} color={colors.gcash} />
+              <Text style={styles.forecastText}>
+                {forecastText(daysLeft(sheet.product, sales))}
+              </Text>
             </View>
 
             <Text style={styles.label}>Magdagdag ng stock</Text>
@@ -547,6 +577,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     ...shadow,
+  },
+  restockListBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#fff",
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  restockListText: {
+    flex: 1,
+    fontWeight: "700",
+    color: colors.dark,
+  },
+  forecast: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: colors.gcashSoft,
+    borderRadius: radius.md,
+    padding: 12,
+    marginTop: 10,
+  },
+  forecastText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.text,
   },
   statRow: {
     flexDirection: "row",

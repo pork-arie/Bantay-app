@@ -13,33 +13,39 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 import BottomSheet from "@/components/BottomSheet";
-import { avatarTints, colors, initials, peso, radius, shadow } from "@/constants/theme";
-import { DEBTORS, balanceOf, type Debtor, type LedgerEntry } from "@/data/sample";
+import {
+  avatarTints,
+  colors,
+  initials,
+  paymentStyles,
+  peso,
+  radius,
+  shadow,
+} from "@/constants/theme";
+import type { Debtor } from "@/data/sample";
+import { success, warning } from "@/store/haptics";
+import { balanceOf, formatDate, totalUtang } from "@/store/selectors";
+import { useStore } from "@/store/StoreProvider";
 
 type Filter = "Lahat" | "May utang" | "Bayad na";
 type Action = "bayad" | "utang" | null;
 
 const FILTERS: Filter[] = ["May utang", "Bayad na", "Lahat"];
-const MONTHS = ["Ene", "Peb", "Mar", "Abr", "May", "Hun", "Hul", "Ago", "Set", "Okt", "Nob", "Dis"];
-
-function todayLabel() {
-  const d = new Date();
-  return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
-}
 
 export default function Utang() {
-  const [debtors, setDebtors] = useState<Debtor[]>(DEBTORS);
+  const { debtors, settings, addDebtor, addLedgerEntry } = useStore();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("May utang");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [action, setAction] = useState<Action>(null);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [method, setMethod] = useState<"cash" | "gcash">("cash");
   const [adding, setAdding] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({ name: "", phone: "", amount: "" });
+  const [newCustomer, setNewCustomer] = useState({ name: "", phone: "", amount: "", limit: "" });
 
   const selected = debtors.find((d) => d.id === selectedId) ?? null;
-  const total = debtors.reduce((sum, d) => sum + balanceOf(d), 0);
+  const total = totalUtang(debtors);
   const withBalance = debtors.filter((d) => balanceOf(d) > 0).length;
 
   const visible = useMemo(() => {
@@ -59,32 +65,28 @@ export default function Utang() {
     setAction(null);
     setAmount("");
     setNote("");
-  }
-
-  function addEntry(debtorId: string, entry: Omit<LedgerEntry, "id" | "date">) {
-    setDebtors((prev) =>
-      prev.map((d) =>
-        d.id === debtorId
-          ? {
-              ...d,
-              entries: [{ ...entry, id: String(Date.now()), date: todayLabel() }, ...d.entries],
-            }
-          : d,
-      ),
-    );
+    setMethod("cash");
   }
 
   function saveAction(d: Debtor) {
     const value = parseFloat(amount);
     if (!value || value <= 0) {
+      warning();
       Alert.alert("Kulang", "Ilagay ang halaga.");
       return;
     }
     if (action === "bayad" && value > balanceOf(d)) {
+      warning();
       Alert.alert("Sobra", `Ang utang ni ${d.name} ay ${peso(balanceOf(d))} lang.`);
       return;
     }
-    addEntry(d.id, { type: action!, amount: value, note: note.trim() || undefined });
+    addLedgerEntry(d.id, {
+      type: action!,
+      amount: value,
+      method: action === "bayad" ? method : undefined,
+      note: note.trim() || undefined,
+    });
+    success();
     setAction(null);
     setAmount("");
     setNote("");
@@ -93,8 +95,10 @@ export default function Utang() {
   function remind(d: Debtor) {
     Share.share({
       message:
-        `Hi ${d.name}! Paalala lang po sa inyong utang sa tindahan na ` +
-        `${peso(balanceOf(d))}. Salamat po! 🙏`,
+        `Hi ${d.name}! Paalala lang po sa inyong utang sa ` +
+        `${settings.storeName || "tindahan"} na ${peso(balanceOf(d))}.` +
+        (settings.gcashNumber ? ` Puwede rin pong magbayad sa GCash: ${settings.gcashNumber}.` : "") +
+        " Salamat po! 🙏",
     });
   }
 
@@ -104,16 +108,15 @@ export default function Utang() {
       Alert.alert("Kulang", "Ilagay ang pangalan ng customer.");
       return;
     }
-    const initial = parseFloat(newCustomer.amount);
-    const debtor: Debtor = {
-      id: String(Date.now()),
+    addDebtor({
       name,
       phone: newCustomer.phone.trim() || undefined,
-      entries: initial > 0 ? [{ id: "1", date: todayLabel(), type: "utang", amount: initial }] : [],
-    };
-    setDebtors((prev) => [debtor, ...prev]);
+      limit: parseFloat(newCustomer.limit) || settings.defaultLimit,
+      amount: parseFloat(newCustomer.amount) || 0,
+    });
+    success();
     setAdding(false);
-    setNewCustomer({ name: "", phone: "", amount: "" });
+    setNewCustomer({ name: "", phone: "", amount: "", limit: "" });
   }
 
   function renderItem({ item }: { item: Debtor }) {
@@ -133,7 +136,7 @@ export default function Utang() {
           <Text style={styles.itemName}>{item.name}</Text>
           <Text style={styles.itemMeta}>
             {last
-              ? `${last.type === "bayad" ? "Huling bayad" : "Huling utang"} · ${last.date}`
+              ? `${last.type === "bayad" ? "Huling bayad" : "Huling utang"} · ${formatDate(last.date)}`
               : "Walang record"}
           </Text>
         </View>
@@ -243,6 +246,23 @@ export default function Utang() {
               >
                 {peso(balanceOf(selected))}
               </Text>
+              <View style={styles.limitTrack}>
+                <View
+                  style={[
+                    styles.limitFill,
+                    {
+                      width: `${Math.min(Math.max(balanceOf(selected) / selected.limit, 0), 1) * 100}%`,
+                      backgroundColor:
+                        balanceOf(selected) > selected.limit ? colors.red : colors.orange,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.limitText}>
+                {balanceOf(selected) > selected.limit
+                  ? `Lampas na sa limit na ${peso(selected.limit)}`
+                  : `Limit: ${peso(selected.limit)}`}
+              </Text>
             </View>
 
             {action === null ? (
@@ -294,14 +314,44 @@ export default function Utang() {
                   style={styles.input}
                 />
                 {action === "bayad" ? (
-                  <Pressable
-                    onPress={() => setAmount(String(balanceOf(selected)))}
-                    style={styles.fullPay}
-                  >
-                    <Text style={styles.fullPayText}>
-                      Bayad lahat ({peso(balanceOf(selected))})
-                    </Text>
-                  </Pressable>
+                  <View>
+                    <Pressable
+                      onPress={() => setAmount(String(balanceOf(selected)))}
+                      style={styles.fullPay}
+                    >
+                      <Text style={styles.fullPayText}>
+                        Bayad lahat ({peso(balanceOf(selected))})
+                      </Text>
+                    </Pressable>
+                    <Text style={styles.label}>Paano nagbayad?</Text>
+                    <View style={styles.methodRow}>
+                      {(["cash", "gcash"] as const).map((m) => {
+                        const active = method === m;
+                        const style = paymentStyles[m];
+                        return (
+                          <Pressable
+                            key={m}
+                            onPress={() => setMethod(m)}
+                            style={[
+                              styles.methodBtn,
+                              active && { backgroundColor: style.fg, borderColor: style.fg },
+                            ]}
+                          >
+                            <Ionicons
+                              name={style.icon}
+                              size={16}
+                              color={active ? "#fff" : style.fg}
+                            />
+                            <Text
+                              style={[styles.methodText, { color: active ? "#fff" : colors.text }]}
+                            >
+                              {m === "cash" ? "Cash" : "GCash"}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
                 ) : (
                   <TextInput
                     value={note}
@@ -353,9 +403,11 @@ export default function Utang() {
                       />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.entryTitle}>{isPay ? "Bayad" : "Utang"}</Text>
+                      <Text style={styles.entryTitle}>
+                        {isPay ? `Bayad${e.method === "gcash" ? " · GCash" : ""}` : "Utang"}
+                      </Text>
                       <Text style={styles.itemMeta}>
-                        {e.date}
+                        {formatDate(e.date)}
                         {e.note ? ` · ${e.note}` : ""}
                       </Text>
                     </View>
@@ -398,15 +450,30 @@ export default function Utang() {
           keyboardType="phone-pad"
           style={styles.input}
         />
-        <Text style={styles.label}>Unang utang (optional)</Text>
-        <TextInput
-          value={newCustomer.amount}
-          onChangeText={(amount) => setNewCustomer({ ...newCustomer, amount })}
-          placeholder="₱0.00"
-          placeholderTextColor={colors.muted}
-          keyboardType="decimal-pad"
-          style={styles.input}
-        />
+        <View style={styles.formRowFields}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>Unang utang</Text>
+            <TextInput
+              value={newCustomer.amount}
+              onChangeText={(amount) => setNewCustomer({ ...newCustomer, amount })}
+              placeholder="₱0.00"
+              placeholderTextColor={colors.muted}
+              keyboardType="decimal-pad"
+              style={styles.input}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>Credit limit</Text>
+            <TextInput
+              value={newCustomer.limit}
+              onChangeText={(limit) => setNewCustomer({ ...newCustomer, limit })}
+              placeholder={String(settings.defaultLimit)}
+              placeholderTextColor={colors.muted}
+              keyboardType="decimal-pad"
+              style={styles.input}
+            />
+          </View>
+        </View>
         <Pressable
           onPress={saveCustomer}
           style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
@@ -601,6 +668,45 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.red,
     marginTop: 4,
+  },
+  limitTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.border,
+    marginTop: 12,
+    overflow: "hidden",
+  },
+  limitFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  limitText: {
+    fontSize: 12,
+    color: colors.muted,
+    marginTop: 6,
+  },
+  methodRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  methodBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  methodText: {
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  formRowFields: {
+    flexDirection: "row",
+    gap: 12,
   },
   actions: {
     flexDirection: "row",

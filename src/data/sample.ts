@@ -1,4 +1,4 @@
-// Sample data used until the app is connected to real storage.
+// Types plus the starter data the app is seeded with on first launch.
 
 export type Category = 'Lahat' | 'Inumin' | 'Snacks' | 'De Lata' | 'Gamit';
 
@@ -14,20 +14,37 @@ export type Product = {
   category: Exclude<Category, 'Lahat'>;
 };
 
-export type Transaction = {
+export type PaymentMethod = 'cash' | 'gcash' | 'utang';
+
+export type SaleItem = {
+  productId: string;
+  name: string;
+  price: number;
+  cost: number;
+  qty: number;
+};
+
+export type Sale = {
   id: string;
-  customer: string;
-  items: number;
+  /** ISO timestamp. */
+  date: string;
+  items: SaleItem[];
   total: number;
-  time: string;
-  type: 'cash' | 'utang';
+  payment: PaymentMethod;
+  customerId?: string;
+  customerName?: string;
+  gcashRef?: string;
+  cashReceived?: number;
 };
 
 export type LedgerEntry = {
   id: string;
+  /** ISO timestamp. */
   date: string;
   type: 'utang' | 'bayad';
   amount: number;
+  /** How a bayad was paid. */
+  method?: 'cash' | 'gcash';
   note?: string;
 };
 
@@ -35,25 +52,37 @@ export type Debtor = {
   id: string;
   name: string;
   phone?: string;
+  /** Credit limit; checkout warns before going over it. */
+  limit: number;
   /** Newest first. */
   entries: LedgerEntry[];
 };
 
-export type Period = 'today' | 'week' | 'month';
-
-export type PeriodReport = {
-  sales: number;
-  transactions: number;
-  cash: number;
-  utang: number;
-  cost: number;
-  trend: { label: string; total: number }[];
-  topProducts: { id: string; qty: number }[];
+export type Settings = {
+  storeName: string;
+  ownerName: string;
+  gcashNumber: string;
+  defaultLimit: number;
 };
+
+export type DayClosing = {
+  id: string;
+  date: string;
+  expected: number;
+  counted: number;
+};
+
+export type Period = 'today' | 'week' | 'month';
 
 export const CATEGORIES: Category[] = ['Lahat', 'Inumin', 'Snacks', 'De Lata', 'Gamit'];
 
-export const PRODUCTS: Product[] = [
+export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
+  cash: 'Cash',
+  gcash: 'GCash',
+  utang: 'Utang',
+};
+
+export const SEED_PRODUCTS: Product[] = [
   { id: '1', name: 'Coke 290ml', price: 20, cost: 16, stock: 24, min: 10, category: 'Inumin' },
   { id: '2', name: 'Royal 290ml', price: 20, cost: 16, stock: 18, min: 10, category: 'Inumin' },
   { id: '3', name: 'Kopiko 3in1', price: 10, cost: 7.5, stock: 40, min: 20, category: 'Inumin' },
@@ -68,125 +97,101 @@ export const PRODUCTS: Product[] = [
   { id: '12', name: 'Surf Sachet', price: 12, cost: 9.5, stock: 50, min: 20, category: 'Gamit' },
 ];
 
-export const TRANSACTIONS: Transaction[] = [
-  { id: 't1', customer: 'Walk-in', items: 3, total: 58, time: '2:45 PM', type: 'cash' },
-  { id: 't2', customer: 'Aling Nena', items: 5, total: 214, time: '1:30 PM', type: 'utang' },
-  { id: 't3', customer: 'Walk-in', items: 1, total: 20, time: '12:10 PM', type: 'cash' },
-  { id: 't4', customer: 'Mang Jose', items: 2, total: 80, time: '10:05 AM', type: 'utang' },
-  { id: 't5', customer: 'Walk-in', items: 4, total: 96, time: '8:20 AM', type: 'cash' },
-];
-
-export const WEEKLY_SALES = [
-  { day: 'Lun', total: 1240 },
-  { day: 'Mar', total: 980 },
-  { day: 'Miy', total: 1530 },
-  { day: 'Huw', total: 1120 },
-  { day: 'Biy', total: 1890 },
-  { day: 'Sab', total: 2210 },
-  { day: 'Lin', total: 468 },
-];
-
-export const DEBTORS: Debtor[] = [
-  {
-    id: 'd1',
-    name: 'Aling Nena',
-    phone: '0917 123 4567',
-    entries: [
-      { id: 'e1', date: 'Okt 14', type: 'utang', amount: 214, note: '5 items' },
-      { id: 'e2', date: 'Okt 12', type: 'utang', amount: 536, note: 'Bigas at de lata' },
-      { id: 'e3', date: 'Okt 8', type: 'bayad', amount: 500 },
-      { id: 'e4', date: 'Okt 2', type: 'utang', amount: 1000, note: 'Grocery' },
-    ],
-  },
-  {
-    id: 'd2',
-    name: 'Mang Jose',
-    entries: [
-      { id: 'e5', date: 'Okt 14', type: 'utang', amount: 80, note: '2 items' },
-      { id: 'e6', date: 'Okt 10', type: 'utang', amount: 280 },
-      { id: 'e7', date: 'Set 28', type: 'utang', amount: 500 },
-    ],
-  },
-  {
-    id: 'd3',
-    name: 'Ate Liza',
-    phone: '0928 555 0192',
-    entries: [{ id: 'e8', date: 'Okt 5', type: 'utang', amount: 800, note: 'Gatas at diaper' }],
-  },
-  {
-    id: 'd4',
-    name: 'Kuya Ben',
-    entries: [
-      { id: 'e9', date: 'Okt 11', type: 'bayad', amount: 200 },
-      { id: 'e10', date: 'Okt 3', type: 'utang', amount: 740 },
-    ],
-  },
-];
-
-export const REPORTS: Record<Period, PeriodReport> = {
-  today: {
-    sales: 468,
-    transactions: 5,
-    cash: 174,
-    utang: 294,
-    cost: 351,
-    trend: [
-      { label: '8AM', total: 96 },
-      { label: '10AM', total: 80 },
-      { label: '12PM', total: 20 },
-      { label: '1PM', total: 214 },
-      { label: '2PM', total: 58 },
-    ],
-    topProducts: [
-      { id: '1', qty: 6 },
-      { id: '9', qty: 2 },
-      { id: '5', qty: 3 },
-      { id: '3', qty: 4 },
-    ],
-  },
-  week: {
-    sales: 9438,
-    transactions: 112,
-    cash: 7210,
-    utang: 2228,
-    cost: 7080,
-    trend: WEEKLY_SALES.map((d) => ({ label: d.day, total: d.total })),
-    topProducts: [
-      { id: '1', qty: 84 },
-      { id: '3', qty: 120 },
-      { id: '9', qty: 22 },
-      { id: '5', qty: 41 },
-      { id: '12', qty: 55 },
-    ],
-  },
-  month: {
-    sales: 38650,
-    transactions: 468,
-    cash: 30120,
-    utang: 8530,
-    cost: 28990,
-    trend: [
-      { label: 'Wk 1', total: 8920 },
-      { label: 'Wk 2', total: 10240 },
-      { label: 'Wk 3', total: 10052 },
-      { label: 'Wk 4', total: 9438 },
-    ],
-    topProducts: [
-      { id: '1', qty: 340 },
-      { id: '3', qty: 480 },
-      { id: '9', qty: 96 },
-      { id: '8', qty: 88 },
-      { id: '5', qty: 150 },
-    ],
-  },
+export const DEFAULT_SETTINGS: Settings = {
+  storeName: '',
+  ownerName: '',
+  gcashNumber: '',
+  defaultLimit: 2000,
 };
 
-export function isLowStock(p: Product) {
-  return p.stock <= p.min;
+function daysAgo(days: number, hour = 9) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  d.setHours(hour, 0, 0, 0);
+  return d.toISOString();
 }
 
-export function balanceOf(d: Debtor) {
-  return d.entries.reduce((sum, e) => sum + (e.type === 'utang' ? e.amount : -e.amount), 0);
+export function seedDebtors(): Debtor[] {
+  return [
+    {
+      id: 'd1',
+      name: 'Aling Nena',
+      phone: '0917 123 4567',
+      limit: 2000,
+      entries: [
+        { id: 'e2', date: daysAgo(2), type: 'utang', amount: 750, note: 'Bigas at de lata' },
+        { id: 'e3', date: daysAgo(6), type: 'bayad', amount: 500, method: 'gcash' },
+        { id: 'e4', date: daysAgo(12), type: 'utang', amount: 1000, note: 'Grocery' },
+      ],
+    },
+    {
+      id: 'd2',
+      name: 'Mang Jose',
+      limit: 1000,
+      entries: [
+        { id: 'e6', date: daysAgo(4), type: 'utang', amount: 360 },
+        { id: 'e7', date: daysAgo(16), type: 'utang', amount: 500 },
+      ],
+    },
+    {
+      id: 'd3',
+      name: 'Ate Liza',
+      phone: '0928 555 0192',
+      limit: 1500,
+      entries: [{ id: 'e8', date: daysAgo(9), type: 'utang', amount: 800, note: 'Gatas at diaper' }],
+    },
+    {
+      id: 'd4',
+      name: 'Kuya Ben',
+      limit: 1000,
+      entries: [
+        { id: 'e9', date: daysAgo(3), type: 'bayad', amount: 200, method: 'cash' },
+        { id: 'e10', date: daysAgo(11), type: 'utang', amount: 740 },
+      ],
+    },
+  ];
 }
 
-export const TOTAL_UTANG = DEBTORS.reduce((sum, d) => sum + balanceOf(d), 0);
+/**
+ * Generates 30 days of believable past sales so Reports and the Dashboard
+ * have something to show before the store records its own.
+ */
+export function seedSales(products: Product[]): Sale[] {
+  let seed = 42;
+  const rand = () => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+
+  const sales: Sale[] = [];
+  const now = new Date();
+  for (let day = 29; day >= 0; day--) {
+    const count = 8 + Math.floor(rand() * 10);
+    for (let i = 0; i < count; i++) {
+      const date = new Date(now);
+      date.setDate(now.getDate() - day);
+      date.setHours(7 + Math.floor(rand() * 13), Math.floor(rand() * 60), 0, 0);
+      if (date > now) continue;
+
+      const lines = 1 + Math.floor(rand() * 3);
+      const items: SaleItem[] = [];
+      for (let l = 0; l < lines; l++) {
+        const p = products[Math.floor(rand() * products.length)];
+        if (items.some((it) => it.productId === p.id)) continue;
+        items.push({ productId: p.id, name: p.name, price: p.price, cost: p.cost, qty: 1 + Math.floor(rand() * 3) });
+      }
+      const r = rand();
+      const payment: PaymentMethod = r < 0.62 ? 'cash' : r < 0.85 ? 'gcash' : 'utang';
+      sales.push({
+        id: `s${day}-${i}`,
+        date: date.toISOString(),
+        items,
+        total: items.reduce((sum, it) => sum + it.price * it.qty, 0),
+        payment,
+        customerName: payment === 'utang' ? 'Aling Nena' : undefined,
+        customerId: payment === 'utang' ? 'd1' : undefined,
+      });
+    }
+  }
+  return sales.sort((a, b) => b.date.localeCompare(a.date));
+}

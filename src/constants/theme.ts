@@ -13,7 +13,16 @@ export const colors = {
   red: '#DC2626',
   redSoft: '#FEE2E2',
   dark: '#111827',
+  gcash: '#007DFE',
+  gcashSoft: '#E0EEFF',
 };
+
+/** Text, background and icon for each payment method. */
+export const paymentStyles = {
+  cash: { fg: colors.primary, bg: colors.primarySoft, icon: 'cash-outline' },
+  gcash: { fg: colors.gcash, bg: colors.gcashSoft, icon: 'phone-portrait-outline' },
+  utang: { fg: colors.orange, bg: colors.orangeSoft, icon: 'time-outline' },
+} as const;
 
 export const radius = {
   sm: 10,
