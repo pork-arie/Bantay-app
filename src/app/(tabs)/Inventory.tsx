@@ -50,7 +50,11 @@ const EMPTY_FORM = {
   packName: "",
   packSize: "",
   packPrice: "",
+  boxSize: "",
+  boxCost: "",
 };
+/** Cost can be typed per piece or for a whole box from the supplier. */
+type CostMode = "piece" | "box";
 
 function forecast(days: number | null): { key: TKey; vars?: Record<string, number> } {
   if (days === null) return { key: "Walang nabenta nitong nakaraang 7 araw." };
@@ -81,6 +85,7 @@ function InventoryScreen() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [formCategory, setFormCategory] = useState<Product["category"]>("Inumin");
   const [hasPack, setHasPack] = useState(false);
+  const [costMode, setCostMode] = useState<CostMode>("piece");
   const [lookup, setLookup] = useState<"idle" | "loading" | "found" | "notfound">("idle");
   // Benta sends unknown barcodes here so they can be added right away.
   // `at` makes each hand-off unique, so the same code can be sent twice.
@@ -108,7 +113,9 @@ function InventoryScreen() {
     });
   }, [products, search, filter]);
 
+  // What the stock cost you, and what it brings in if every piece sells.
   const stockValue = products.reduce((sum, p) => sum + p.cost * p.stock, 0);
+  const sellValue = products.reduce((sum, p) => sum + p.price * p.stock, 0);
   const lowCount = products.filter(isLowStock).length;
   const outCount = products.filter((p) => p.stock === 0).length;
 
@@ -138,6 +145,7 @@ function InventoryScreen() {
     setForm({ ...EMPTY_FORM, barcode });
     setFormCategory("Inumin");
     setHasPack(false);
+    setCostMode("piece");
     setLookup("idle");
     setSheet({ type: "add" });
     if (barcode) fillFromBarcode(barcode);
@@ -156,9 +164,12 @@ function InventoryScreen() {
       packName: product.pack?.name ?? "",
       packSize: product.pack ? String(product.pack.size) : "",
       packPrice: product.pack ? String(product.pack.price) : "",
+      boxSize: "",
+      boxCost: "",
     });
     setFormCategory(product.category);
     setHasPack(product.pack !== undefined);
+    setCostMode("piece");
     setLookup("idle");
     setSheet({ type: "edit", productId: product.id });
   }
@@ -194,11 +205,27 @@ function InventoryScreen() {
     else Alert.alert(t("Para sa owner lang"), t("Ang may-ari lang ang makakapagdagdag ng bagong produkto."));
   }
 
-  function saveProduct() {
-    const price = parseFloat(form.price);
-    const cost = parseFloat(form.cost);
-    const packSize = parseInt(form.packSize, 10);
-    const packPrice = parseFloat(form.packPrice);
+  // Live numbers for the form.
+  const unitName = form.unit.trim() || "pc";
+  const formPrice = parseFloat(form.price) || 0;
+  const boxSize = parseInt(form.boxSize, 10) || 0;
+  const formCost =
+    costMode === "box"
+      ? boxSize > 0
+        ? // Keep extra decimals so 6 × ₱83.3333 adds back up to the ₱500 box.
+          Math.round(((parseFloat(form.boxCost) || 0) / boxSize) * 10000) / 10000
+        : 0
+      : parseFloat(form.cost) || 0;
+  const formPackSize = parseInt(form.packSize, 10) || 0;
+  const formPackPrice = parseFloat(form.packPrice) || 0;
+  const pieceLoss = formPrice > 0 && formCost > 0 && formCost >= formPrice;
+  const packLoss = hasPack && formPackSize > 0 && formPackPrice > 0 && formCost * formPackSize >= formPackPrice;
+
+  async function saveProduct() {
+    const price = formPrice;
+    const cost = formCost;
+    const packSize = formPackSize;
+    const packPrice = formPackPrice;
     if (form.name.trim() === "" || !price || !cost) {
       Alert.alert(t("Kulang"), t("Ilagay ang pangalan, presyo at puhunan."));
       return;
@@ -213,6 +240,16 @@ function InventoryScreen() {
     if (sameBarcode) {
       Alert.alert(t("Nasa listahan na"), t("Naka-link na ang barcode na ito sa {name}.", { name: sameBarcode.name }));
       return;
+    }
+    // Catch the common mistake of typing a whole box's cost as the cost of one piece.
+    if (pieceLoss || packLoss) {
+      const go = await confirm(
+        t("Malulugi ka"),
+        t("Mas mataas o pareho ang puhunan kaysa presyo ng benta. Tama ba ito?"),
+        t("Oo, i-save"),
+        t("Ayusin"),
+      );
+      if (!go) return;
     }
     const details = {
       name: form.name.trim(),
@@ -343,8 +380,14 @@ function InventoryScreen() {
             {/* Summary */}
             <View style={styles.summary}>
               <View style={styles.summaryMain}>
-                <Text style={styles.summaryLabel}>{t("Halaga ng paninda")}</Text>
+                <Text style={styles.summaryLabel}>{t("Puhunan sa stock")}</Text>
                 <Text style={styles.summaryValue}>{peso(stockValue)}</Text>
+                <Text style={styles.summaryLabel}>
+                  {t("Kung maubos lahat: {sales} · tubo {profit}", {
+                    sales: peso(sellValue),
+                    profit: peso(sellValue - stockValue),
+                  })}
+                </Text>
               </View>
               <View style={styles.summaryRow}>
                 <View style={styles.summaryPill}>
@@ -595,47 +638,174 @@ function InventoryScreen() {
           <TextInput
             value={form.name}
             onChangeText={(name) => setForm({ ...form, name })}
-            placeholder="hal. Lucky Me Pancit Canton"
+            placeholder={t("hal. Lucky Me Pancit Canton")}
             placeholderTextColor={colors.muted}
             style={styles.input}
           />
-          <View style={styles.formRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.label}>{t("Presyo (tingi)")}</Text>
-              <TextInput
-                value={form.price}
-                onChangeText={(price) => setForm({ ...form, price })}
-                placeholder="₱0.00"
-                placeholderTextColor={colors.muted}
-                keyboardType="decimal-pad"
-                style={styles.input}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.label}>{t("Puhunan (tingi)")}</Text>
-              <TextInput
-                value={form.cost}
-                onChangeText={(cost) => setForm({ ...form, cost })}
-                placeholder="₱0.00"
-                placeholderTextColor={colors.muted}
-                keyboardType="decimal-pad"
-                style={styles.input}
-              />
-            </View>
+
+          {/* Step 1: what one piece is called */}
+          <Text style={styles.label}>{t("Tawag sa isang piraso")}</Text>
+          <TextInput
+            value={form.unit}
+            onChangeText={(unit) => setForm({ ...form, unit })}
+            placeholder={t("hal. pc, bote, sachet, lata")}
+            placeholderTextColor={colors.muted}
+            style={styles.input}
+          />
+
+          {/* Step 2: selling price of one piece */}
+          <Text style={styles.label}>{t("Presyo ng benta (isang {unit})", { unit: unitName })}</Text>
+          <TextInput
+            value={form.price}
+            onChangeText={(price) => setForm({ ...form, price })}
+            placeholder="₱0.00"
+            placeholderTextColor={colors.muted}
+            keyboardType="decimal-pad"
+            style={styles.input}
+          />
+          <Text style={styles.hint}>{t("Magkano mo ibinebenta sa customer ang isa.")}</Text>
+
+          {/* Step 3: cost, per piece or per box */}
+          <Text style={styles.label}>{t("Puhunan (bili mo sa supplier)")}</Text>
+          <View style={styles.quickRow}>
+            {(["piece", "box"] as const).map((mode) => (
+              <Pressable
+                key={mode}
+                onPress={() => setCostMode(mode)}
+                style={[styles.chip, costMode === mode && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, costMode === mode && styles.chipTextActive]}>
+                  {mode === "piece" ? t("Kada {unit}", { unit: unitName }) : t("Kada kahon/pack")}
+                </Text>
+              </Pressable>
+            ))}
           </View>
+          {costMode === "piece" ? (
+            <TextInput
+              value={form.cost}
+              onChangeText={(cost) => setForm({ ...form, cost })}
+              placeholder={t("Puhunan sa isang {unit}", { unit: unitName })}
+              placeholderTextColor={colors.muted}
+              keyboardType="decimal-pad"
+              style={[styles.input, { marginTop: 10 }]}
+            />
+          ) : (
+            <View style={[styles.formRow, { marginTop: 2 }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>{t("Ilang {unit} sa isang kahon?", { unit: unitName })}</Text>
+                <TextInput
+                  value={form.boxSize}
+                  onChangeText={(boxSize) => setForm({ ...form, boxSize })}
+                  placeholder="12"
+                  placeholderTextColor={colors.muted}
+                  keyboardType="number-pad"
+                  style={styles.input}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>{t("Bili sa isang kahon")}</Text>
+                <TextInput
+                  value={form.boxCost}
+                  onChangeText={(boxCost) => setForm({ ...form, boxCost })}
+                  placeholder="₱0.00"
+                  placeholderTextColor={colors.muted}
+                  keyboardType="decimal-pad"
+                  style={styles.input}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Live result so mistakes show right away */}
+          {formPrice > 0 && formCost > 0 && (
+            <View style={[styles.calcBox, pieceLoss && styles.calcBoxBad]}>
+              {costMode === "box" && (
+                <Text style={styles.calcText}>
+                  {t("Puhunan: {cost} kada {unit}", { cost: peso(formCost), unit: unitName })}
+                </Text>
+              )}
+              <Text style={[styles.calcMain, { color: pieceLoss ? colors.red : colors.success }]}>
+                {pieceLoss
+                  ? t("Lugi ka ng {amount} kada {unit}", { amount: peso(formCost - formPrice), unit: unitName })
+                  : t("Tubo: {amount} kada {unit}", { amount: peso(formPrice - formCost), unit: unitName })}
+              </Text>
+            </View>
+          )}
+
+          {/* Step 4: optional pack selling */}
+          <Pressable
+            onPress={() => {
+              // Reuse the box size as the pack size if it was already typed.
+              if (!hasPack && form.packSize === "" && boxSize > 0) setForm({ ...form, packSize: String(boxSize) });
+              setHasPack(!hasPack);
+            }}
+            style={[styles.toggleRow, hasPack && styles.toggleRowActive]}
+          >
+            <Ionicons
+              name={hasPack ? "checkbox" : "square-outline"}
+              size={22}
+              color={hasPack ? colors.primary : colors.muted}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.toggleTitle}>{t("Binebenta mo rin ba nang buo?")}</Text>
+              <Text style={styles.itemMeta}>
+                {t("Pack, tali o kahon, hal. 1 tali = 10 sachet sa ₱95")}
+              </Text>
+            </View>
+          </Pressable>
+          {hasPack && (
+            <>
+              <View style={styles.formRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>{t("Tawag")}</Text>
+                  <TextInput
+                    value={form.packName}
+                    onChangeText={(packName) => setForm({ ...form, packName })}
+                    placeholder={t("tali, pack, kahon")}
+                    placeholderTextColor={colors.muted}
+                    style={styles.input}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>{t("Ilang {unit}?", { unit: unitName })}</Text>
+                  <TextInput
+                    value={form.packSize}
+                    onChangeText={(packSize) => setForm({ ...form, packSize })}
+                    placeholder="10"
+                    placeholderTextColor={colors.muted}
+                    keyboardType="number-pad"
+                    style={styles.input}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>{t("Presyo")}</Text>
+                  <TextInput
+                    value={form.packPrice}
+                    onChangeText={(packPrice) => setForm({ ...form, packPrice })}
+                    placeholder="₱0.00"
+                    placeholderTextColor={colors.muted}
+                    keyboardType="decimal-pad"
+                    style={styles.input}
+                  />
+                </View>
+              </View>
+              {formPackSize > 0 && formPackPrice > 0 && formCost > 0 && (
+                <Text style={[styles.hint, { color: packLoss ? colors.red : colors.success }]}>
+                  {packLoss
+                    ? t("Lugi ka sa bawat {pack}.", { pack: form.packName.trim() || "pack" })
+                    : t("Tubo: {amount} kada {pack}", {
+                        amount: peso(formPackPrice - formCost * formPackSize),
+                        pack: form.packName.trim() || "pack",
+                      })}
+                </Text>
+              )}
+            </>
+          )}
+
+          {/* Step 5: stock */}
           <View style={styles.formRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.label}>{t("Tawag sa isa")}</Text>
-              <TextInput
-                value={form.unit}
-                onChangeText={(unit) => setForm({ ...form, unit })}
-                placeholder="pc, sachet, bote"
-                placeholderTextColor={colors.muted}
-                style={styles.input}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.label}>{t("Stock")}</Text>
+              <Text style={styles.label}>{t("Stock ngayon (ilang {unit})", { unit: unitName })}</Text>
               <TextInput
                 value={form.stock}
                 onChangeText={(stock) => setForm({ ...form, stock })}
@@ -646,7 +816,7 @@ function InventoryScreen() {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.label}>{t("Minimum")}</Text>
+              <Text style={styles.label}>{t("Paalala kapag bumaba sa")}</Text>
               <TextInput
                 value={form.min}
                 onChangeText={(min) => setForm({ ...form, min })}
@@ -657,55 +827,6 @@ function InventoryScreen() {
               />
             </View>
           </View>
-
-          {/* Pack (e.g. tali of 10 sachets) */}
-          <Pressable onPress={() => setHasPack(!hasPack)} style={styles.toggleRow}>
-            <Ionicons
-              name={hasPack ? "checkbox" : "square-outline"}
-              size={22}
-              color={hasPack ? colors.primary : colors.muted}
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.toggleTitle}>{t("Binebenta rin nang buo (pack/tali)")}</Text>
-              <Text style={styles.itemMeta}>{t("hal. 1 tali = 10 sachet sa ₱95")}</Text>
-            </View>
-          </Pressable>
-          {hasPack && (
-            <View style={styles.formRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>{t("Tawag")}</Text>
-                <TextInput
-                  value={form.packName}
-                  onChangeText={(packName) => setForm({ ...form, packName })}
-                  placeholder="tali"
-                  placeholderTextColor={colors.muted}
-                  style={styles.input}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>{t("Laman")}</Text>
-                <TextInput
-                  value={form.packSize}
-                  onChangeText={(packSize) => setForm({ ...form, packSize })}
-                  placeholder="10"
-                  placeholderTextColor={colors.muted}
-                  keyboardType="number-pad"
-                  style={styles.input}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>{t("Presyo")}</Text>
-                <TextInput
-                  value={form.packPrice}
-                  onChangeText={(packPrice) => setForm({ ...form, packPrice })}
-                  placeholder="₱0.00"
-                  placeholderTextColor={colors.muted}
-                  keyboardType="decimal-pad"
-                  style={styles.input}
-                />
-              </View>
-            </View>
-          )}
 
           <Text style={styles.label}>{t("Kategorya")}</Text>
           <View style={styles.quickRow}>
@@ -1107,7 +1228,35 @@ const createStyles = (colors: Colors) =>
       marginTop: 16,
       padding: 12,
       borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: "transparent",
       backgroundColor: colors.background,
+    },
+    hint: {
+      fontSize: 12,
+      color: colors.muted,
+      marginTop: 6,
+    },
+    calcBox: {
+      backgroundColor: colors.successSoft,
+      borderRadius: radius.md,
+      padding: 12,
+      marginTop: 12,
+      gap: 2,
+    },
+    calcBoxBad: {
+      backgroundColor: colors.redSoft,
+    },
+    calcText: {
+      fontSize: 13,
+      color: colors.text,
+    },
+    calcMain: {
+      fontSize: 15,
+      fontWeight: "700",
+    },
+    toggleRowActive: {
+      borderColor: colors.primary,
     },
     toggleTitle: {
       fontSize: 14,
