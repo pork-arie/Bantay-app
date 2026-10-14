@@ -21,6 +21,7 @@ import { FadeIn } from "@/components/motion";
 import { avatarTints, initials, peso, radius, shadow, type Colors } from "@/constants/theme";
 import { CATEGORIES, type Category, type Product } from "@/data/sample";
 import { useT, type TKey } from "@/i18n";
+import { confirm } from "@/lib/confirm";
 import { lookupBarcode } from "@/lib/productLookup";
 import { success } from "@/store/haptics";
 import { daysLeft, formatStock, isLowStock, restockList } from "@/store/selectors";
@@ -28,7 +29,11 @@ import { useStore } from "@/store/StoreProvider";
 import { useTheme } from "@/store/useTheme";
 
 type Filter = Category | "Paubos";
-type Sheet = { type: "restock"; productId: string } | { type: "add" } | null;
+type Sheet =
+  | { type: "restock"; productId: string }
+  | { type: "add" }
+  | { type: "edit"; productId: string }
+  | null;
 /** What a barcode scan is for: finding a product, linking one, or filling the add form. */
 type ScanTarget = "find" | "link" | "add" | null;
 
@@ -63,7 +68,7 @@ function InventoryScreen() {
   const t = useT();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { products, sales, settings, ready, restock, addProduct, updateProduct, can } = useStore();
+  const { products, sales, settings, ready, restock, addProduct, updateProduct, removeProduct, can } = useStore();
   const canManage = can("manageProducts");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("Lahat");
@@ -72,7 +77,7 @@ function InventoryScreen() {
 
   // Restock form, in pieces
   const [restockQty, setRestockQty] = useState("");
-  // Add-product form
+  // Add/edit-product form
   const [form, setForm] = useState(EMPTY_FORM);
   const [formCategory, setFormCategory] = useState<Product["category"]>("Inumin");
   const [hasPack, setHasPack] = useState(false);
@@ -138,6 +143,38 @@ function InventoryScreen() {
     if (barcode) fillFromBarcode(barcode);
   }
 
+  /** Opens the same form as "add", filled in with the product's current details. */
+  function openEdit(product: Product) {
+    setForm({
+      name: product.name,
+      price: String(product.price),
+      cost: String(product.cost),
+      stock: String(product.stock),
+      min: String(product.min),
+      unit: product.unit,
+      barcode: product.barcode ?? "",
+      packName: product.pack?.name ?? "",
+      packSize: product.pack ? String(product.pack.size) : "",
+      packPrice: product.pack ? String(product.pack.price) : "",
+    });
+    setFormCategory(product.category);
+    setHasPack(product.pack !== undefined);
+    setLookup("idle");
+    setSheet({ type: "edit", productId: product.id });
+  }
+
+  async function confirmRemove(product: Product) {
+    const yes = await confirm(
+      t("Burahin ang {name}?", { name: product.name }),
+      t("Mawawala ito sa listahan ng produkto. Hindi magbabago ang mga lumang benta."),
+      t("Burahin"),
+      t("Kanselahin"),
+    );
+    if (!yes) return;
+    removeProduct(product.id);
+    setSheet(null);
+  }
+
   /** Fills in the name (and category when it can tell) from the online product database. */
   async function fillFromBarcode(code: string) {
     setLookup("loading");
@@ -170,21 +207,31 @@ function InventoryScreen() {
       Alert.alert(t("Kulang"), t("Ilagay ang laman at presyo ng pack."));
       return;
     }
-    addProduct({
+    const editingId = sheet?.type === "edit" ? sheet.productId : undefined;
+    const barcode = form.barcode.trim();
+    const sameBarcode = barcode ? products.find((p) => p.barcode === barcode && p.id !== editingId) : undefined;
+    if (sameBarcode) {
+      Alert.alert(t("Nasa listahan na"), t("Naka-link na ang barcode na ito sa {name}.", { name: sameBarcode.name }));
+      return;
+    }
+    const details = {
       name: form.name.trim(),
       price,
       cost,
       stock: parseInt(form.stock || "0", 10),
       min: parseInt(form.min || "5", 10),
       unit: form.unit.trim() || "pc",
-      barcode: form.barcode.trim() || undefined,
+      barcode: barcode || undefined,
       pack: hasPack
         ? { name: form.packName.trim() || "pack", size: packSize, price: packPrice }
         : undefined,
       category: formCategory,
-    });
+    };
+    if (editingId) updateProduct(editingId, details);
+    else addProduct(details);
     success();
-    setSheet(null);
+    // After editing, go back to the product's sheet so the changes are visible.
+    setSheet(editingId ? { type: "restock", productId: editingId } : null);
   }
 
   function onScanned(code: string) {
@@ -439,6 +486,18 @@ function InventoryScreen() {
               </View>
             )}
 
+            {canManage && (
+              <View style={styles.editRow}>
+                <Pressable
+                  onPress={() => openEdit(sheetProduct)}
+                  style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
+                >
+                  <Ionicons name="create-outline" size={18} color={colors.text} />
+                  <Text style={styles.editBtnText}>{t("I-edit ang produkto")}</Text>
+                </Pressable>
+              </View>
+            )}
+
             <Pressable
               onPress={() => canManage && setScanTarget("link")}
               disabled={!canManage}
@@ -487,11 +546,11 @@ function InventoryScreen() {
         )}
       </BottomSheet>
 
-      {/* Add-product sheet */}
+      {/* Add / edit product sheet */}
       <BottomSheet
-        visible={sheet?.type === "add"}
-        title={t("Bagong produkto")}
-        onClose={() => setSheet(null)}
+        visible={sheet?.type === "add" || sheet?.type === "edit"}
+        title={sheet?.type === "edit" ? t("I-edit ang produkto") : t("Bagong produkto")}
+        onClose={() => setSheet(sheet?.type === "edit" ? { type: "restock", productId: sheet.productId } : null)}
       >
         <ScrollView keyboardShouldPersistTaps="handled">
           <Text style={styles.label}>{t("Barcode (optional)")}</Text>
@@ -500,7 +559,7 @@ function InventoryScreen() {
               value={form.barcode}
               onChangeText={(barcode) => setForm({ ...form, barcode })}
               onEndEditing={() => {
-                if (form.barcode.trim() && form.name === "") fillFromBarcode(form.barcode.trim());
+                if (sheet?.type === "add" && form.barcode.trim() && form.name === "") fillFromBarcode(form.barcode.trim());
               }}
               placeholder="4800000000000"
               placeholderTextColor={colors.muted}
@@ -666,8 +725,22 @@ function InventoryScreen() {
             onPress={saveProduct}
             style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
           >
-            <Text style={styles.primaryBtnText}>{t("Idagdag ang produkto")}</Text>
+            <Text style={styles.primaryBtnText}>
+              {sheet?.type === "edit" ? t("I-save ang pagbabago") : t("Idagdag ang produkto")}
+            </Text>
           </Pressable>
+          {sheet?.type === "edit" && (
+            <Pressable
+              onPress={() => {
+                const product = products.find((p) => p.id === sheet.productId);
+                if (product) confirmRemove(product);
+              }}
+              style={({ pressed }) => [styles.removeBtn, pressed && styles.pressed]}
+            >
+              <Ionicons name="trash-outline" size={18} color={colors.red} />
+              <Text style={styles.removeBtnText}>{t("Burahin ang produkto")}</Text>
+            </Pressable>
+          )}
         </ScrollView>
       </BottomSheet>
 
@@ -902,6 +975,39 @@ const createStyles = (colors: Colors) =>
       borderRadius: radius.md,
       padding: 12,
       marginTop: 8,
+    },
+    editRow: {
+      flexDirection: "row",
+      marginTop: 8,
+    },
+    editBtn: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      paddingVertical: 12,
+    },
+    editBtnText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    removeBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      paddingVertical: 14,
+      marginTop: 8,
+    },
+    removeBtnText: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: colors.red,
     },
     barcodeRow: {
       flexDirection: "row",

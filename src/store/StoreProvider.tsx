@@ -41,7 +41,7 @@ export type State = {
   closings: DayClosing[];
   staff: StaffMember[];
   activity: ActivityEntry[];
-  meta: { lastBackupAt?: string; acceptedTermsAt?: string; lightDefault?: boolean };
+  meta: { lastBackupAt?: string; acceptedTermsAt?: string; lightDefault?: boolean; englishDefault?: boolean };
 };
 
 /** Who is using the app right now. Not saved: the lock screen asks again on restart. */
@@ -86,6 +86,8 @@ type Store = State & {
   restock: (productId: string, qty: number) => void;
   addProduct: (product: Omit<Product, 'id'>) => void;
   updateProduct: (productId: string, patch: Partial<Omit<Product, 'id'>>) => void;
+  /** Past sales keep their own copy of the name and price, so they are not affected. */
+  removeProduct: (productId: string) => void;
   addDebtor: (input: { name: string; phone?: string; limit: number; amount?: number }) => void;
   addLedgerEntry: (debtorId: string, entry: Omit<LedgerEntry, 'id' | 'date'>) => void;
   updateDebtorLimit: (debtorId: string, limit: number) => void;
@@ -122,7 +124,7 @@ function seedState(): State {
     closings: [],
     staff: [],
     activity: [],
-    meta: { lightDefault: true },
+    meta: { lightDefault: true, englishDefault: true },
   };
 }
 
@@ -132,13 +134,15 @@ export function normalizeState(saved: Partial<State>): State {
   const settings = { ...DEFAULT_SETTINGS, ...saved.settings };
   // Light became the default theme; move data saved with the old "system" default over once.
   if (!meta.lightDefault && settings.themeMode === 'system') settings.themeMode = 'light';
+  // English became the default language; same one-time move for the old Filipino default.
+  if (!meta.englishDefault && settings.language === 'fil') settings.language = 'en';
   return {
     ...seedState(),
     ...saved,
     settings,
     staff: saved.staff ?? [],
     activity: saved.activity ?? [],
-    meta: { ...meta, lightDefault: true },
+    meta: { ...meta, lightDefault: true, englishDefault: true },
   };
 }
 
@@ -342,13 +346,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
 
     updateProduct(productId, patch) {
+      const before = state.products.find((p) => p.id === productId);
+      // Only log the fields that really changed.
+      const changed = Object.keys(patch).filter(
+        (k) => JSON.stringify(before?.[k as keyof Product]) !== JSON.stringify(patch[k as keyof typeof patch]),
+      );
+      if (changed.length === 0) return;
       setState((s) =>
         logged(
           { ...s, products: s.products.map((p) => (p.id === productId ? { ...p, ...patch } : p)) },
           'product',
-          `${productName(productId)} (${Object.keys(patch).join(', ')})`,
+          `${productName(productId)} (${changed.join(', ')})`,
         ),
       );
+    },
+
+    removeProduct(productId) {
+      const name = productName(productId);
+      setState((s) => logged({ ...s, products: s.products.filter((p) => p.id !== productId) }, 'product', `− ${name}`));
     },
 
     addDebtor({ name, phone, limit, amount }) {
@@ -423,7 +438,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     resetData() {
       setSession(null);
-      setState((s) => ({ ...seedState(), meta: { acceptedTermsAt: s.meta.acceptedTermsAt } }));
+      setState((s) => ({ ...seedState(), meta: { ...seedState().meta, acceptedTermsAt: s.meta.acceptedTermsAt } }));
     },
 
     startFresh() {
@@ -443,7 +458,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         closings: [],
         staff: [],
         activity: [],
-        meta: { lightDefault: true },
+        meta: { lightDefault: true, englishDefault: true },
       });
     },
   };

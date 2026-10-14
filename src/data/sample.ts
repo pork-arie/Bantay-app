@@ -180,7 +180,7 @@ export const DEFAULT_SETTINGS: Settings = {
   storeAddress: '',
   gcashNumber: '',
   defaultLimit: 2000,
-  language: 'fil',
+  language: 'en',
   themeMode: 'light',
   accent: 'green',
   ownerPin: '',

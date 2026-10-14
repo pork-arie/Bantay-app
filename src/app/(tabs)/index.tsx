@@ -13,7 +13,7 @@ import {
   shadow,
   type Colors,
 } from "@/constants/theme";
-import { PAYMENT_KEYS, useT } from "@/i18n";
+import { LANGUAGES, PAYMENT_KEYS, useT } from "@/i18n";
 import { daysSinceBackup } from "@/lib/backup";
 import { notify } from "@/lib/confirm";
 import {
@@ -360,6 +360,20 @@ export default function Index() {
         onClose={() => setSetupDismissed(true)}
       >
         <ScrollView keyboardShouldPersistTaps="handled">
+          <View style={styles.langRow}>
+            {LANGUAGES.map((lang) => {
+              const active = settings.language === lang.key;
+              return (
+                <Pressable
+                  key={lang.key}
+                  onPress={() => updateSettings({ language: lang.key })}
+                  style={[styles.langChip, active && styles.langChipActive]}
+                >
+                  <Text style={[styles.langText, active && styles.langTextActive]}>{lang.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
           <Text style={styles.setupIntro}>
             {t("Ilagay ang ilang detalye ng tindahan. Mababago mo ito sa Settings.")}
           </Text>
@@ -451,6 +465,30 @@ export default function Index() {
 
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
+    langRow: {
+      flexDirection: "row",
+      gap: 8,
+      marginBottom: 14,
+    },
+    langChip: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    langChipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    langText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    langTextActive: {
+      color: "#fff",
+    },
     screen: {
       flex: 1,
       backgroundColor: colors.background,

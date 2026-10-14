@@ -76,7 +76,8 @@ export default function Benta() {
 
   const cartLines: CartLine[] = products.flatMap((p) =>
     (["tingi", "pack"] as const)
-      .filter((unit) => cart[cartKey(p.id, unit)])
+      // A pack line is dropped if the product's pack was removed in Inventory.
+      .filter((unit) => cart[cartKey(p.id, unit)] && (unit === "tingi" || p.pack))
       .map((unit) => ({ product: p, unit, qty: cart[cartKey(p.id, unit)] })),
   );
   const itemCount = cartLines.reduce((sum, l) => sum + l.qty, 0);

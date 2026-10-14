@@ -8,8 +8,8 @@ import BottomSheet from "@/components/BottomSheet";
 import OwnerOnly from "@/components/OwnerOnly";
 import { PIN_LENGTH } from "@/components/LockScreen";
 import { ACCENTS, BRAND, initials, radius, type Accent, type Colors } from "@/constants/theme";
-import type { Language, ThemeMode } from "@/data/sample";
-import { useT, type TKey } from "@/i18n";
+import type { ThemeMode } from "@/data/sample";
+import { LANGUAGES, useT, type TKey } from "@/i18n";
 import { daysSinceBackup, exportBackup, pickBackup, unlockBackup, type EncryptedBackup } from "@/lib/backup";
 import { confirm, notify } from "@/lib/confirm";
 import { printUtangList } from "@/lib/receipt";
@@ -22,11 +22,6 @@ const THEMES: { key: ThemeMode; label: TKey; icon: "phone-portrait-outline" | "s
   { key: "system", label: "Sundan ang phone", icon: "phone-portrait-outline" },
   { key: "light", label: "Maliwanag", icon: "sunny-outline" },
   { key: "dark", label: "Madilim", icon: "moon-outline" },
-];
-const LANGUAGES: { key: Language; label: string }[] = [
-  { key: "fil", label: "Filipino" },
-  { key: "en", label: "English" },
-  { key: "war", label: "Waray" },
 ];
 const PIN_RE = new RegExp(`^\\d{${PIN_LENGTH}}$`);
 

@@ -421,4 +421,11 @@ export const wa: Partial<Record<TKey, string>> = {
 
   // Roles & languages
   'May-ari': 'Tag-iya',
+  // Edit product
+  'I-edit ang produkto': 'I-edit an produkto',
+  'I-save ang pagbabago': 'Igtipig an mga pagbag-o',
+  'Burahin ang produkto': 'Para-a an produkto',
+  'Burahin ang {name}?': 'Para-a an {name}?',
+  'Mawawala ito sa listahan ng produkto. Hindi magbabago ang mga lumang benta.':
+    'Mawawara ini ha listahan han produkto. Diri mababag-o an mga daan nga baligya.',
 };

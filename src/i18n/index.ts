@@ -21,6 +21,13 @@ export function useT() {
   return (key: TKey, vars?: TVars) => translate(settings.language, key, vars);
 }
 
+/** Language names are shown in their own language, so they are not translated. */
+export const LANGUAGES: { key: Language; label: string }[] = [
+  { key: 'en', label: 'English' },
+  { key: 'fil', label: 'Filipino' },
+  { key: 'war', label: 'Waray' },
+];
+
 export const PAYMENT_KEYS = {
   cash: 'Cash',
   gcash: 'GCash',

@@ -450,4 +450,11 @@ export const en = {
   'Napalitan na ang PIN.': 'Your PIN has been changed.',
   // Roles & languages
   'May-ari': 'Owner',
+  // Edit product
+  'I-edit ang produkto': 'Edit product',
+  'I-save ang pagbabago': 'Save changes',
+  'Burahin ang produkto': 'Delete product',
+  'Burahin ang {name}?': 'Delete {name}?',
+  'Mawawala ito sa listahan ng produkto. Hindi magbabago ang mga lumang benta.':
+    "It will be removed from your product list. Past sales won't change.",
 } as const;
