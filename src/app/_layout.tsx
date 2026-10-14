@@ -5,11 +5,11 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 const DRAWER_TABS = [
-  { label: 'Overview',  route: '/tabs',            icon: 'grid-outline' },
-  { label: 'Benta',     route: '/tabs/Benta',      icon: 'cart-outline' },
-  { label: 'Inventory', route: '/tabs/Inventory',  icon: 'cube-outline' },
-  { label: 'Utang',     route: '/tabs/Utang',      icon: 'people-outline' },
-  { label: 'Reports',   route: '/tabs/Reports',    icon: 'bar-chart-outline' },
+  { label: 'Overview',  route: '/(tabs)',            icon: 'grid-outline' },
+  { label: 'Benta',     route: '/(tabs)/Benta',      icon: 'cart-outline' },
+  { label: 'Inventory', route: '/(tabs)/Inventory',  icon: 'cube-outline' },
+  { label: 'Utang',     route: '/(tabs)/Utang',      icon: 'people-outline' },
+  { label: 'Reports',   route: '/(tabs)/Reports',    icon: 'bar-chart-outline' },
 ] ;
 
 function CustomDrawerContent(props: any) {
@@ -39,7 +39,7 @@ export default function RootLayout() {
         drawerContent={(props) => <CustomDrawerContent {...props} />}
         screenOptions={{ headerShown: true }}
       >
-        <Drawer.Screen name="tabs" options={{ title: 'DASHBOARD' }} />
+        <Drawer.Screen name="(tabs)" options={{ title: 'DASHBOARD' }} />
       </Drawer>
     </GestureHandlerRootView>
   );
