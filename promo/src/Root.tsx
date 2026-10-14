@@ -1,5 +1,6 @@
-import { Composition } from "remotion";
+import { Composition, Still } from "remotion";
 import { BantayPromo, FPS, TOTAL_FRAMES } from "./BantayPromo";
+import { PromoShot } from "./PromoShot";
 
 export const RemotionRoot = () => (
   <>
@@ -7,5 +8,7 @@ export const RemotionRoot = () => (
     <Composition id="BantayPromo" component={BantayPromo} durationInFrames={TOTAL_FRAMES} fps={FPS} width={1080} height={1920} />
     {/* 16:9 for YouTube, Facebook feed and presentations */}
     <Composition id="BantayPromoLandscape" component={BantayPromo} durationInFrames={TOTAL_FRAMES} fps={FPS} width={1920} height={1080} />
+    {/* Promo images: render with --props='{"index":0}' … 4 */}
+    <Still id="PromoShot" component={PromoShot} width={1080} height={1920} defaultProps={{ index: 0 }} />
   </>
 );

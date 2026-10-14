@@ -13,6 +13,12 @@ npm run studio            # preview and edit in the browser
 npm run render            # writes both videos to out/
 ```
 
+## Promo images
+
+`images/bantay-1.png` … `bantay-5.png`: five 1080×1920 images (dashboard, selling, utang, inventory, forecast),
+each a real app screen in a phone frame with a short Tagalog headline. Good for the Play Store listing
+(phone screenshots) and social posts. Edit the text in `src/PromoShot.tsx` (`SHOTS`) and run `npm run pics`.
+
 ## What's inside
 
 - `src/BantayPromo.tsx`: all scenes. `DEFS` is the timeline; each scene lasts as long as its voice line.
