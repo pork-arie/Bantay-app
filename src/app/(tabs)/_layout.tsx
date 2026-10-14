@@ -13,7 +13,7 @@ export default function tabLayout(){
     <Tabs screenOptions={{headerShown:false,tabBarActiveTintColor:colors.primary,tabBarInactiveTintColor:colors.muted,tabBarStyle:{backgroundColor:colors.surface,borderTopColor:colors.border}}}>
         <Tabs.Screen name="index" options={{title:t('Dashboard'),tabBarIcon:({color,size})=> (<Ionicons name="grid-outline" size={size} color={color} />)}}/>
         <Tabs.Screen name="Benta" options={{title:t('Benta'),tabBarIcon:(({color,size})=> (<Ionicons name="cart-outline" size={size} color={color}/>))}}/>
-        <Tabs.Screen name="Inventory" options={{title:t('Inventory'),tabBarIcon:({color,size})=>(<Ionicons name="cube-outline" size={size} color={color}/>)}}/>
+        <Tabs.Screen name="Inventory" options={{href:can('inventory')?undefined:null,title:t('Inventory'),tabBarIcon:({color,size})=>(<Ionicons name="cube-outline" size={size} color={color}/>)}}/>
         <Tabs.Screen name="Utang" options={{title:t('Utang'),tabBarIcon:({color,size})=>(<Ionicons name="people-outline" size={size} color={color}/>)}}/>
         <Tabs.Screen name="Reports" options={{href:can('viewProfit')?undefined:null,title:t('Reports'),tabBarIcon:({color,size})=>(<Ionicons name="bar-chart-outline" size={size} color={color}/>)}}/>
     </Tabs>

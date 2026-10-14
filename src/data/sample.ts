@@ -89,7 +89,7 @@ export type Debtor = {
 
 import type { Accent } from '@/constants/theme';
 
-export type Language = 'fil' | 'en';
+export type Language = 'fil' | 'en' | 'war';
 export type ThemeMode = 'system' | 'light' | 'dark';
 
 export type Settings = {
@@ -181,7 +181,7 @@ export const DEFAULT_SETTINGS: Settings = {
   gcashNumber: '',
   defaultLimit: 2000,
   language: 'fil',
-  themeMode: 'system',
+  themeMode: 'light',
   accent: 'green',
   ownerPin: '',
 };

@@ -17,10 +17,10 @@ keep honest records — all on the owner's phone, with no Wi-Fi, account or serv
   printable credit list.
 - **Reports:** sales and profit by day/week/month, payment split, best sellers, earnings
   forecast, profit calculator, end-of-day cash count, month/day sales history.
-- **Bantay mode:** owner and staff PINs, staff restrictions, activity log of every action.
+- **Bantay mode:** owner and staff PINs, staff restrictions (no profit, inventory or settings), auto-lock after 5 minutes in the background, activity log of every action.
 - **Offline backup:** one-file backup and restore (Bluetooth, SD card, Messenger…),
   backup reminders.
-- **Personalization:** light/dark mode, 8 accent colors, Filipino or English.
+- **Personalization:** light (default) or dark mode, 8 accent colors, Filipino, English or Waray-Waray.
 
 ## Tech
 

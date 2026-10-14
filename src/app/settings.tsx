@@ -26,6 +26,7 @@ const THEMES: { key: ThemeMode; label: TKey; icon: "phone-portrait-outline" | "s
 const LANGUAGES: { key: Language; label: string }[] = [
   { key: "fil", label: "Filipino" },
   { key: "en", label: "English" },
+  { key: "war", label: "Waray" },
 ];
 const PIN_RE = new RegExp(`^\\d{${PIN_LENGTH}}$`);
 
@@ -82,10 +83,12 @@ export default function SettingsScreen() {
   const [changingPin, setChangingPin] = useState(false);
   const [changeForm, setChangeForm] = useState({ current: "", pin: "", again: "" });
 
-  // Saved settings load asynchronously; refill the form once they arrive.
+  // Saved settings load asynchronously; refill the form once they arrive or after a restore.
+  // Only profile fields count, so changing the theme or language keeps unsaved typing.
+  const profileKey = JSON.stringify(formFromSettings());
   useEffect(() => {
-    if (ready) setForm(formFromSettings());
-  }, [ready, settings]);
+    if (ready) setForm(JSON.parse(profileKey));
+  }, [ready, profileKey]);
 
   if (!can("settings")) return <OwnerOnly />;
 
@@ -442,7 +445,7 @@ export default function SettingsScreen() {
         {settings.ownerPin === "" ? (
           <>
             <Text style={styles.hint}>
-              {t("Maglagay ng PIN para i-lock ang app at para makagawa ng account ang staff. Hindi makikita ng staff ang tubo, settings at activity log, at hindi sila makakapag-void.")}
+              {t("Maglagay ng PIN para i-lock ang app at para makagawa ng account ang staff. Hindi makikita ng staff ang tubo, inventory, settings at activity log, at hindi sila makakapag-void.")}
             </Text>
             <View style={styles.formRow}>
               <TextInput

@@ -58,6 +58,10 @@ export default function ActivityScreen() {
 
   if (!can("activity")) return <OwnerOnly />;
 
+  // Logins save the role ("owner"/"staff"); show it in the app's language.
+  const entryText = (e: ActivityEntry) =>
+    e.kind === "login" ? (e.text === "owner" ? t("May-ari") : t("Staff")) : e.text;
+
   return (
     <View style={styles.screen}>
       <SectionList
@@ -97,7 +101,7 @@ export default function ActivityScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.label}>
                   {t(info.label)}
-                  {item.text ? <Text style={styles.text}> · {item.text}</Text> : null}
+                  {item.text ? <Text style={styles.text}> · {entryText(item)}</Text> : null}
                 </Text>
                 <Text style={styles.meta}>
                   {item.who} ·{" "}

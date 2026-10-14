@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import BarcodeScanner from "@/components/BarcodeScanner";
 import BottomSheet from "@/components/BottomSheet";
+import OwnerOnly from "@/components/OwnerOnly";
 import { FadeIn } from "@/components/motion";
 import { avatarTints, initials, peso, radius, shadow, type Colors } from "@/constants/theme";
 import { CATEGORIES, type Category, type Product } from "@/data/sample";
@@ -52,7 +53,13 @@ function forecast(days: number | null): { key: TKey; vars?: Record<string, numbe
   return { key: "Tatagal pa ng ~{days} araw sa bilis ng benta ngayon.", vars: { days } };
 }
 
+/** Staff can sell but don't manage stock, so Inventory is owner-only. */
 export default function Inventory() {
+  const { can } = useStore();
+  return can("inventory") ? <InventoryScreen /> : <OwnerOnly />;
+}
+
+function InventoryScreen() {
   const t = useT();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);

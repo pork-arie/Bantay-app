@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -48,7 +48,9 @@ export default function Benta() {
   const { colors, pay } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
-  const { products, debtors, settings, checkout } = useStore();
+  const { products, debtors, settings, checkout, can } = useStore();
+  // Stops a quick double tap on "Complete sale" from recording the sale twice.
+  const finishing = useRef(false);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<Category>("Lahat");
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -161,6 +163,7 @@ export default function Benta() {
   }
 
   function finish() {
+    if (finishing.current || cartLines.length === 0) return;
     if (payment === "cash" && received !== "" && receivedAmount < total) {
       warning();
       Alert.alert(t("Kulang ang bayad"), t("Kulang pa ng {amount}.", { amount: peso(total - receivedAmount) }));
@@ -177,6 +180,8 @@ export default function Benta() {
       return;
     }
 
+    finishing.current = true;
+    setTimeout(() => (finishing.current = false), 800);
     const sale = checkout({
       cart: cartLines.map((l) => ({ productId: l.product.id, unit: l.unit, qty: l.qty })),
       payment,
@@ -589,7 +594,7 @@ export default function Benta() {
         feedback={scanFeedback}
         footer={
           <View style={styles.scanFooter}>
-            {unknownCode && (
+            {unknownCode && can("manageProducts") && (
               <Pressable onPress={addUnknownToInventory} style={styles.scanAddBtn}>
                 <Ionicons name="add-circle-outline" size={18} color="#111827" />
                 <Text style={styles.scanAddText}>{t("Idagdag sa Inventory")}</Text>

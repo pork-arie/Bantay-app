@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 
 import { peso } from '@/constants/theme';
 import {
@@ -29,6 +30,8 @@ const STORAGE_KEY = 'bantay-state-v2';
 const MAX_ACTIVITY = 1000;
 /** Prefix marking saved data that is AES-encrypted with the device key. */
 const ENCRYPTED_PREFIX = 'enc1:';
+/** With a PIN set, the app locks again after being in the background this long. */
+const AUTO_LOCK_MS = 5 * 60 * 1000;
 
 export type State = {
   products: Product[];
@@ -38,7 +41,7 @@ export type State = {
   closings: DayClosing[];
   staff: StaffMember[];
   activity: ActivityEntry[];
-  meta: { lastBackupAt?: string; acceptedTermsAt?: string };
+  meta: { lastBackupAt?: string; acceptedTermsAt?: string; lightDefault?: boolean };
 };
 
 /** Who is using the app right now. Not saved: the lock screen asks again on restart. */
@@ -47,13 +50,17 @@ export type Session = { id: string; name: string; role: 'owner' | 'staff' };
 /** Things staff are not allowed to do; the owner can do everything. */
 export type Permission =
   | 'viewProfit'
+  | 'inventory'
   | 'manageProducts'
   | 'voidSale'
   | 'settings'
   | 'backup'
   | 'activity';
 
-const STAFF_BLOCKED: Permission[] = ['viewProfit', 'manageProducts', 'voidSale', 'settings', 'backup', 'activity'];
+const STAFF_BLOCKED: Permission[] = [
+  'viewProfit',
+  'inventory',
+  'manageProducts', 'voidSale', 'settings', 'backup', 'activity'];
 
 export type CheckoutInput = {
   cart: { productId: string; unit: SellUnit; qty: number }[];
@@ -115,19 +122,23 @@ function seedState(): State {
     closings: [],
     staff: [],
     activity: [],
-    meta: {},
+    meta: { lightDefault: true },
   };
 }
 
 /** Fills in fields added in later versions so older saved data and backups still load. */
 export function normalizeState(saved: Partial<State>): State {
+  const meta = saved.meta ?? {};
+  const settings = { ...DEFAULT_SETTINGS, ...saved.settings };
+  // Light became the default theme; move data saved with the old "system" default over once.
+  if (!meta.lightDefault && settings.themeMode === 'system') settings.themeMode = 'light';
   return {
     ...seedState(),
     ...saved,
-    settings: { ...DEFAULT_SETTINGS, ...saved.settings },
+    settings,
     staff: saved.staff ?? [],
     activity: saved.activity ?? [],
-    meta: saved.meta ?? {},
+    meta: { ...meta, lightDefault: true },
   };
 }
 
@@ -135,7 +146,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>(seedState);
   const [ready, setReady] = useState(false);
   const [storageError, setStorageError] = useState(false);
-  const [session, setSession] = useState<Session | null>(null);
+  // Only who is logged in is kept here; the name is looked up live so renames show at once.
+  const [session, setSession] = useState<Pick<Session, 'id' | 'role'> | null>(null);
   // Saves run one after another so an older, slower save never lands last.
   const saveQueue = useRef(Promise.resolve());
 
@@ -164,13 +176,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .catch(() => {});
   }, [state, ready, storageError]);
 
-  const locked = state.settings.ownerPin !== '' && session === null;
+  const ownerName = state.settings.ownerName || 'Owner';
+  const staffMember = session?.role === 'staff' ? state.staff.find((m) => m.id === session.id) : undefined;
+  // A staff member who was removed (or whose data was replaced) is logged out.
+  const validSession = session !== null && (session.role === 'owner' || staffMember !== undefined);
+  const locked = state.settings.ownerPin !== '' && !validSession;
   // With no PIN set there is only the owner.
-  const current: Session = session ?? {
-    id: 'owner',
-    name: state.settings.ownerName || 'Owner',
-    role: 'owner',
-  };
+  const current: Session =
+    validSession && session.role === 'staff'
+      ? { id: session.id, name: staffMember!.name, role: 'staff' }
+      : { id: 'owner', name: ownerName, role: 'owner' };
+
+  // Lock again when the app comes back after a while in the background.
+  const hasPin = state.settings.ownerPin !== '';
+  useEffect(() => {
+    if (!hasPin) return;
+    let leftAt = 0;
+    const sub = AppState.addEventListener('change', (status) => {
+      if (status === 'background') leftAt = Date.now();
+      if (status === 'active' && leftAt > 0) {
+        if (Date.now() - leftAt > AUTO_LOCK_MS) setSession(null);
+        leftAt = 0;
+      }
+    });
+    return () => sub.remove();
+  }, [hasPin]);
 
   function logged(s: State, kind: ActivityKind, text: string, who = current.name): State {
     const entry: ActivityEntry = { id: newId(), date: new Date().toISOString(), who, kind, text };
@@ -213,11 +243,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const owner = pin === state.settings.ownerPin;
       const member = owner ? undefined : state.staff.find((m) => m.pin === pin);
       if (!owner && !member) return false;
-      const next: Session = owner
-        ? { id: 'owner', name: state.settings.ownerName || 'Owner', role: 'owner' }
-        : { id: member!.id, name: member!.name, role: 'staff' };
-      setSession(next);
-      setState((s) => logged(s, 'login', next.role, next.name));
+      setSession(owner ? { id: 'owner', role: 'owner' } : { id: member!.id, role: 'staff' });
+      setState((s) => logged(s, 'login', owner ? 'owner' : 'staff', owner ? ownerName : member!.name));
       return true;
     },
 
@@ -352,7 +379,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     updateSettings(patch) {
       // The owner who just turned on the PIN stays logged in instead of being locked out.
-      if (patch.ownerPin && !session) setSession(current);
+      if (patch.ownerPin && !validSession) setSession({ id: current.id, role: current.role });
       setState((s) => {
         const next = { ...s, settings: { ...s.settings, ...patch } };
         // Log profile and security changes, not theme or language taps. Never log PIN values.
@@ -416,7 +443,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         closings: [],
         staff: [],
         activity: [],
-        meta: {},
+        meta: { lightDefault: true },
       });
     },
   };

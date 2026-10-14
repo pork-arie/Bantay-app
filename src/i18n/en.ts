@@ -332,8 +332,8 @@ export const en = {
 
   // Security & staff
   'Seguridad at Staff': 'Security & Staff',
-  'Maglagay ng PIN para i-lock ang app at para makagawa ng account ang staff. Hindi makikita ng staff ang tubo, settings at activity log, at hindi sila makakapag-void.':
-    'Set a PIN to lock the app and to create staff accounts. Staff cannot see profit, settings or the activity log, and cannot void sales.',
+  'Maglagay ng PIN para i-lock ang app at para makagawa ng account ang staff. Hindi makikita ng staff ang tubo, inventory, settings at activity log, at hindi sila makakapag-void.':
+    'Set a PIN to lock the app and to create staff accounts. Staff cannot see profit, inventory, settings or the activity log, and cannot void sales.',
   'Bagong PIN': 'New PIN',
   'Ulitin': 'Repeat',
   'I-on ang PIN lock': 'Turn on PIN lock',
@@ -448,4 +448,6 @@ export const en = {
   'Mali ang kasalukuyang PIN.': 'The current PIN is wrong.',
   'Napalitan na': 'Changed',
   'Napalitan na ang PIN.': 'Your PIN has been changed.',
+  // Roles & languages
+  'May-ari': 'Owner',
 } as const;

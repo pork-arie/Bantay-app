@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Pressable, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
 import Animated, {
   FadeInDown,
@@ -80,15 +80,18 @@ export function GrowBar({
 /** Counts up to `value` over a short time, for money totals. */
 export function useCountUp(value: number, duration = 700) {
   const [shown, setShown] = useState(value);
+  // Counts from 0 the first time, then from whatever number is on screen.
+  const last = useRef(0);
   useEffect(() => {
     let frame = 0;
     const start = Date.now();
-    const from = 0;
+    const from = last.current;
     const tick = () => {
       const t = Math.min((Date.now() - start) / duration, 1);
       // Ease out so the number settles gently.
       const eased = 1 - Math.pow(1 - t, 3);
-      setShown(from + (value - from) * eased);
+      last.current = from + (value - from) * eased;
+      setShown(last.current);
       if (t < 1) frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);

@@ -16,7 +16,7 @@ import { useTheme } from '@/store/useTheme';
 const DRAWER_TABS: { label: TKey; route: string; segment: string; icon: string; needs?: Permission }[] = [
   { label: 'Dashboard', route: '/', segment: '(tabs)', icon: 'grid-outline' },
   { label: 'Benta', route: '/(tabs)/Benta', segment: 'Benta', icon: 'cart-outline' },
-  { label: 'Inventory', route: '/(tabs)/Inventory', segment: 'Inventory', icon: 'cube-outline' },
+  { label: 'Inventory', route: '/(tabs)/Inventory', segment: 'Inventory', icon: 'cube-outline', needs: 'inventory' },
   { label: 'Utang', route: '/(tabs)/Utang', segment: 'Utang', icon: 'people-outline' },
   { label: 'Reports', route: '/(tabs)/Reports', segment: 'Reports', icon: 'bar-chart-outline', needs: 'viewProfit' },
   { label: 'Mga transaksyon', route: '/transactions', segment: 'transactions', icon: 'receipt-outline' },

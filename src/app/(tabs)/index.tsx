@@ -41,7 +41,7 @@ type StatCardProps = {
 
 function StatCard({ label, value, icon, color, tint, styles, onPress }: StatCardProps) {
   return (
-    <PressableScale onPress={onPress} style={styles.card}>
+    <PressableScale onPress={onPress} disabled={!onPress} style={styles.card}>
       <View style={[styles.cardIcon, { backgroundColor: tint }]}>
         <Ionicons name={icon} size={20} color={color} />
       </View>
@@ -70,8 +70,12 @@ export default function Index() {
     acceptTerms,
     startFresh,
     can,
+    session,
     storageError,
   } = useStore();
+  const isOwner = can("settings");
+  // Staff don't see profit or inventory, so their cards open the transaction list instead.
+  const salesLink = can("viewProfit") ? "/(tabs)/Reports" : "/transactions";
   const [setupDismissed, setSetupDismissed] = useState(false);
   const [setup, setSetup] = useState({ storeName: "", ownerName: "", gcashNumber: "" });
   const [agreed, setAgreed] = useState(false);
@@ -96,7 +100,8 @@ export default function Index() {
   const salesShown = useCountUp(today.total);
   const utangShown = useCountUp(totalUtang(debtors));
 
-  const showSetup = ready && (settings.ownerName === "" || !meta.acceptedTermsAt) && !setupDismissed;
+  const showSetup =
+    ready && isOwner && (settings.ownerName === "" || !meta.acceptedTermsAt) && !setupDismissed;
   // Only nag about backups once the store is really being used.
   const backupDays = daysSinceBackup(meta.lastBackupAt);
   const showBackupReminder =
@@ -127,7 +132,7 @@ export default function Index() {
         <View style={{ flex: 1 }}>
           <Text style={styles.smalltext}>{settings.storeName || t("Magandang araw,")}</Text>
           <Text style={styles.bigtext}>
-            {settings.ownerName ? t("Hi, {name}!", { name: settings.ownerName }) : t("Hi!")}
+            {session?.name ? t("Hi, {name}!", { name: session.name }) : t("Hi!")}
           </Text>
         </View>
         <Pressable
@@ -187,7 +192,7 @@ export default function Index() {
             icon="cash-outline"
             color={colors.primary}
             tint={colors.primarySoft}
-            onPress={() => router.navigate("/(tabs)/Reports")}
+            onPress={() => router.navigate(salesLink)}
           />
           <StatCard
             styles={styles}
@@ -196,7 +201,7 @@ export default function Index() {
             icon="receipt-outline"
             color={colors.blue}
             tint={colors.blueSoft}
-            onPress={() => router.navigate("/(tabs)/Reports")}
+            onPress={() => router.navigate(salesLink)}
           />
         </View>
         <View style={styles.row}>
@@ -207,7 +212,7 @@ export default function Index() {
             icon="alert-circle-outline"
             color={colors.orange}
             tint={colors.orangeSoft}
-            onPress={() => router.navigate("/(tabs)/Inventory")}
+            onPress={can("inventory") ? () => router.navigate("/(tabs)/Inventory") : undefined}
           />
           <StatCard
             styles={styles}
@@ -260,14 +265,16 @@ export default function Index() {
             <Text style={styles.eyebrow}>{t("BANTAYAN")}</Text>
             <Text style={styles.sectionTitle}>{t("Paubos na")}</Text>
           </View>
-          <Pressable
-            onPress={() => router.navigate("/(tabs)/Inventory")}
-            style={({ pressed }) => [styles.lowLink, pressed && styles.pressed]}
-            hitSlop={8}
-          >
-            <Text style={styles.lowLinkText}>{t("Tingnan lahat")}</Text>
-            <Ionicons name="arrow-forward" size={16} color={colors.red} />
-          </Pressable>
+          {can("inventory") && (
+            <Pressable
+              onPress={() => router.navigate("/(tabs)/Inventory")}
+              style={({ pressed }) => [styles.lowLink, pressed && styles.pressed]}
+              hitSlop={8}
+            >
+              <Text style={styles.lowLinkText}>{t("Tingnan lahat")}</Text>
+              <Ionicons name="arrow-forward" size={16} color={colors.red} />
+            </Pressable>
+          )}
         </View>
 
         {lowStockItems.length === 0 ? (
