@@ -3,6 +3,7 @@ import {
   AbsoluteFill,
   Audio,
   Img,
+  OffthreadVideo,
   Sequence,
   interpolate,
   spring,
@@ -11,168 +12,249 @@ import {
   useVideoConfig,
 } from "remotion";
 import { fontFamily } from "./fonts";
+import voice from "./voice.json";
 
 export const FPS = 30;
-export const TOTAL_FRAMES = 1800;
-/** The music is 120 BPM: one beat is 15 frames, one bar is 60. Scenes start on bar lines. */
-const BEAT = 15;
 
 const GREEN = "#22C55E";
 const LIME = "#A3E635";
+const GOLD = "#FACC15";
 const DEEP = "#03140A";
 const WHITE = "#FFFFFF";
-const SOFT = "rgba(255,255,255,0.72)";
+const SOFT = "rgba(255,255,255,0.75)";
 const HIGHLIGHT: CSSProperties = {
   background: `linear-gradient(90deg, ${LIME}, ${GREEN})`,
   WebkitBackgroundClip: "text",
   backgroundClip: "text",
   color: "transparent",
 };
+const GOLD_TEXT: CSSProperties = {
+  background: `linear-gradient(90deg, ${GOLD}, #FB923C)`,
+  WebkitBackgroundClip: "text",
+  backgroundClip: "text",
+  color: "transparent",
+};
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
+const sec = (s: number) => Math.round(s * FPS);
+type VoiceId = keyof typeof voice;
 
 const useLandscape = () => {
   const { width, height } = useVideoConfig();
   return width > height;
 };
 
-// ---------- Content ----------
+// ---------- Timeline: each scene is as long as its voice line, plus a little air ----------
 
-type Callout = { icon: string; text: string };
-type FeatureData = {
-  tag: string;
-  title: string;
-  highlight: string[];
-  lines: string[];
-  screens: string[];
-  callouts: Callout[];
+type Line = { id: VoiceId; at: number };
+/** `beeps` are frames (within the scene) where a scanner beep plays. */
+type SceneDef = { min: number; pad: number; lines: Line[]; beeps?: number[]; render: () => ReactNode };
+
+/** Plays voice lines one after another, starting `start` seconds in, with `gap` seconds between. */
+const chain = (ids: VoiceId[], start: number, gap: number): Line[] => {
+  let at = start;
+  return ids.map((id) => {
+    const line = { id, at };
+    at += voice[id] + gap;
+    return line;
+  });
 };
 
-const FEATURES: FeatureData[] = [
+const SCAN_RATE = 1.6; // the scan recording plays a little faster than real time
+const SCAN_TRIM = 0.5; // seconds cut from the start of the recording
+/** Moments in the recording (seconds) when each product scans and when the cart opens. */
+const scanAt = (clipSeconds: number) => sec((clipSeconds - SCAN_TRIM) / SCAN_RATE);
+
+const DEFS: SceneDef[] = [
+  { min: 3.2, pad: 0.4, lines: [{ id: "hook", at: 0.3 }], render: () => <Hook /> },
+  { min: 1.9, pad: 0.35, lines: [{ id: "p1", at: 0.15 }], render: () => <Problem text="Utang lost in a notebook?" /> },
+  { min: 1.9, pad: 0.35, lines: [{ id: "p2", at: 0.15 }], render: () => <Problem text="Stock runs out without warning?" /> },
+  { min: 1.9, pad: 0.45, lines: [{ id: "p3", at: 0.15 }], render: () => <Problem text="Where did the profit go?" /> },
+  { min: 3, pad: 0.5, lines: [{ id: "reveal", at: 0.25 }], render: () => <Reveal /> },
   {
-    tag: "Sell",
-    title: "Sell in seconds",
-    highlight: ["seconds"],
-    lines: ["Tap to add to cart", "Tingi or by pack, tali or box"],
-    screens: ["benta.png"],
-    callouts: [
-      { icon: "🧃", text: "Tingi" },
-      { icon: "📦", text: "+1 tali · ₱95" },
-      { icon: "🧾", text: "Total ₱163.00" },
-    ],
+    min: 3,
+    pad: 0.5,
+    lines: [{ id: "sell", at: 0.3 }],
+    render: () => (
+      <Feature
+        index={1}
+        tag="Sell"
+        title="Sell in seconds"
+        highlight={["seconds"]}
+        lines={["Tap to add to cart", "Tingi or by pack, tali or box"]}
+        screens={[<Screen key="b" src="benta.png" />]}
+        callouts={[
+          { icon: "🧃", text: "Tingi" },
+          { icon: "📦", text: "+1 tali · ₱95" },
+          { icon: "🧾", text: "Total ₱163.00" },
+        ]}
+      />
+    ),
   },
   {
-    tag: "Payments",
-    title: "Cash, GCash or Utang",
-    highlight: ["GCash", "Utang"],
-    lines: ["Change computed for you", "Your GCash number, shown to the buyer"],
-    screens: ["gcash.png"],
-    callouts: [
-      { icon: "💵", text: "Sukli ₱37.00" },
-      { icon: "📱", text: "GCash ✓" },
-      { icon: "📒", text: "Utang → Aling Nena" },
-    ],
+    min: 7.2,
+    pad: 0.3,
+    lines: [{ id: "scan", at: 0.3 }],
+    beeps: [scanAt(2.17), scanAt(4.47), scanAt(7.07)],
+    render: () => (
+      <Feature
+        index={2}
+        tag="Real barcode scanning"
+        title="Scan. Beep. Added."
+        highlight={["Beep"]}
+        lines={["Item after item, straight into the cart", "Checkout in one tap"]}
+        screens={[
+          <OffthreadVideo key="scan" src={staticFile("scan.mp4")} trimBefore={sec(SCAN_TRIM)} playbackRate={SCAN_RATE} muted style={{ width: "100%", display: "block" }} />,
+        ]}
+        callouts={[
+          { icon: "✅", text: "Coke 290ml +₱20", at: scanAt(2.17) },
+          { icon: "✅", text: "Kopiko 3in1 +₱10", at: scanAt(4.47) },
+          { icon: "✅", text: "Piattos +₱18", at: scanAt(7.07) },
+          { icon: "🛒", text: "Total ₱48 · 1 tap", at: scanAt(9.6) },
+        ]}
+        scanPulse={[scanAt(2.17), scanAt(4.47), scanAt(7.07)]}
+      />
+    ),
   },
   {
-    tag: "Receipts",
-    title: "Proof for every sale",
-    highlight: ["every", "sale"],
-    lines: ["Numbered receipts to print or share", "Search any sale, any day"],
-    screens: ["receipt.png", "transactions.png"],
-    callouts: [
-      { icon: "🧾", text: "Receipt #001560" },
-      { icon: "🖨️", text: "Print or share" },
-      { icon: "🔎", text: "Find it in 2 taps" },
-    ],
+    min: 3,
+    pad: 0.5,
+    lines: [{ id: "pay", at: 0.3 }],
+    render: () => (
+      <Feature
+        index={3}
+        tag="Payments"
+        title="Cash, GCash or Utang"
+        highlight={["GCash", "Utang"]}
+        lines={["Change computed for you", "Your GCash number, shown to the buyer"]}
+        screens={[<Screen key="g" src="gcash.png" />]}
+        callouts={[
+          { icon: "💵", text: "Sukli ₱37.00" },
+          { icon: "📱", text: "GCash ✓" },
+          { icon: "📒", text: "Utang → Aling Nena" },
+        ]}
+      />
+    ),
   },
   {
-    tag: "Utang",
-    title: "No more lost notebook",
-    highlight: ["lost", "notebook"],
-    lines: ["Every balance in one list", "Credit limits and friendly reminders"],
-    screens: ["utang.png"],
-    callouts: [
-      { icon: "📒", text: "₱3,450 to collect" },
-      { icon: "🚦", text: "Over limit warning" },
-      { icon: "💬", text: "Reminder sent" },
-    ],
+    min: 3,
+    pad: 0.5,
+    lines: [{ id: "receipt", at: 0.3 }],
+    render: () => (
+      <Feature
+        index={4}
+        tag="Receipts"
+        title="Proof for every sale"
+        highlight={["every", "sale"]}
+        lines={["Numbered receipts to print or share", "Search any sale, any day"]}
+        screens={[<Screen key="r" src="receipt.png" />, <Screen key="t" src="transactions.png" />]}
+        callouts={[
+          { icon: "🧾", text: "Receipt #001560" },
+          { icon: "🖨️", text: "Print or share" },
+          { icon: "🔎", text: "Find it in 2 taps" },
+        ]}
+      />
+    ),
   },
   {
-    tag: "Inventory",
-    title: "Know before it runs out",
-    highlight: ["runs", "out"],
-    lines: ["Low-stock alerts", "A shopping list made for you"],
-    screens: ["inventory.png"],
-    callouts: [
-      { icon: "⚠️", text: "5 items running low" },
-      { icon: "🛒", text: "Shopping list ready" },
-      { icon: "📈", text: "Lasts ~3 more days" },
-    ],
+    min: 3,
+    pad: 0.5,
+    lines: [{ id: "utang", at: 0.3 }],
+    render: () => (
+      <Feature
+        index={5}
+        tag="Utang"
+        title="No more lost notebook"
+        highlight={["lost", "notebook"]}
+        lines={["Every balance in one list", "Credit limits and friendly reminders"]}
+        screens={[<Screen key="u" src="utang.png" />]}
+        callouts={[
+          { icon: "📒", text: "₱3,450 to collect" },
+          { icon: "🚦", text: "Over limit warning" },
+          { icon: "💬", text: "Reminder sent" },
+        ]}
+      />
+    ),
   },
   {
-    tag: "Reports",
-    title: "See your real profit",
-    highlight: ["real", "profit"],
-    lines: ["Sales by month and by day", "Next month's earnings, forecast"],
-    screens: ["forecast.png", "history.png"],
-    callouts: [
-      { icon: "💰", text: "Profit ₱2,024" },
-      { icon: "🔮", text: "Next 30 days ₱44,014" },
-      { icon: "📊", text: "Best day: Sunday" },
-    ],
+    min: 3,
+    pad: 0.5,
+    lines: [{ id: "inventory", at: 0.3 }],
+    render: () => (
+      <Feature
+        index={6}
+        tag="Inventory"
+        title="Know before it runs out"
+        highlight={["runs", "out"]}
+        lines={["Low-stock alerts", "A shopping list made for you"]}
+        screens={[<Screen key="i" src="inventory.png" />]}
+        callouts={[
+          { icon: "⚠️", text: "5 items running low" },
+          { icon: "🛒", text: "Shopping list ready" },
+          { icon: "📈", text: "Lasts ~3 more days" },
+        ]}
+      />
+    ),
   },
+  { min: 7, pad: 0.8, lines: [{ id: "forecast", at: 0.3 }], render: () => <Forecast /> },
   {
-    tag: "Bantay mode",
-    title: "Your staff, watched over",
-    highlight: ["watched", "over"],
-    lines: ["Each staff member has their own PIN", "Every sale and void is logged"],
-    screens: ["lock.png", "activity.png"],
-    callouts: [
-      { icon: "🔐", text: "Staff PIN" },
-      { icon: "👀", text: "Juan sold #001560" },
-      { icon: "🛑", text: "Voids need owner PIN" },
-    ],
+    min: 3,
+    pad: 0.5,
+    lines: [{ id: "staff", at: 0.3 }],
+    render: () => (
+      <Feature
+        index={8}
+        tag="Bantay mode"
+        title="Your staff, watched over"
+        highlight={["watched", "over"]}
+        lines={["Each staff member has their own PIN", "Every sale and void is logged"]}
+        screens={[<Screen key="l" src="lock.png" />, <Screen key="a" src="activity.png" />]}
+        callouts={[
+          { icon: "🔐", text: "Staff PIN" },
+          { icon: "👀", text: "Juan sold #001560" },
+          { icon: "🛑", text: "Voids need owner PIN" },
+        ]}
+      />
+    ),
   },
+  { min: 5, pad: 0.9, lines: chain(["lang", "lang_fil", "lang_war"], 0.2, 0.2), render: () => <Languages /> },
+  { min: 4, pad: 0.6, lines: [{ id: "trust", at: 0.3 }], render: () => <Trust /> },
+  { min: 4, pad: 1.2, lines: chain(["outro", "cta"], 0.35, 0.25), render: () => <Outro /> },
 ];
 
-// ---------- Timeline ----------
+type Scene = SceneDef & { from: number; duration: number };
+const SCENES: Scene[] = [];
+{
+  let from = 0;
+  for (const def of DEFS) {
+    const voiceEnd = Math.max(...def.lines.map((l) => l.at + voice[l.id]));
+    const duration = sec(Math.max(def.min, voiceEnd + def.pad));
+    SCENES.push({ ...def, from, duration });
+    from += duration;
+  }
+}
+export const TOTAL_FRAMES = SCENES.reduce((sum, s) => sum + s.duration, 0);
+const REVEAL_FROM = SCENES[4].from;
 
-type Scene = { from: number; duration: number; node: ReactNode };
-
-const FEATURE_LEN = 120; // 2 bars = 4 seconds
-const FEATURE_START = 540;
-
-const SCENES: Scene[] = [
-  { from: 0, duration: 240, node: <Hook /> },
-  { from: 240, duration: 60, node: <Problem text="Utang lost in a notebook?" /> },
-  { from: 300, duration: 60, node: <Problem text="Stock runs out without warning?" /> },
-  { from: 360, duration: 60, node: <Problem text="Where did the profit go?" /> },
-  { from: 420, duration: 120, node: <Reveal /> },
-  ...FEATURES.slice(0, 1).map((f, i) => ({
-    from: FEATURE_START + i * FEATURE_LEN,
-    duration: FEATURE_LEN,
-    node: <Feature data={f} index={i + 1} />,
-  })),
-  { from: FEATURE_START + FEATURE_LEN, duration: FEATURE_LEN, node: <Scanner index={2} /> },
-  ...FEATURES.slice(1).map((f, i) => ({
-    from: FEATURE_START + (i + 2) * FEATURE_LEN,
-    duration: FEATURE_LEN,
-    node: <Feature data={f} index={i + 3} />,
-  })),
-  { from: 1500, duration: 180, node: <Trust /> },
-  { from: 1680, duration: 120, node: <Outro /> },
-];
+/** Where the languages scene's voice lines start, so each phone appears as its language is spoken. */
+const LANG_LINES = DEFS[13].lines;
 
 export const BantayPromo = () => (
   <AbsoluteFill style={{ fontFamily, background: DEEP, overflow: "hidden" }}>
-    <Audio
-      src={staticFile("music.mp3")}
-      volume={(f) => interpolate(f, [0, 10, TOTAL_FRAMES - 30, TOTAL_FRAMES], [0, 1, 1, 0], clamp)}
-    />
     <Background />
     {SCENES.map((scene) => (
       <Sequence key={scene.from} from={scene.from} durationInFrames={scene.duration}>
-        <SceneFade duration={scene.duration}>{scene.node}</SceneFade>
+        <SceneFade duration={scene.duration}>{scene.render()}</SceneFade>
+        {scene.lines.map((line) => (
+          <Sequence key={line.id} from={sec(line.at)}>
+            <Audio src={staticFile(`voice/${line.id}.wav`)} />
+          </Sequence>
+        ))}
+        {(scene.beeps ?? []).map((at) => (
+          <Sequence key={`beep-${at}`} from={at}>
+            <Audio src={staticFile("beep.wav")} volume={0.6} />
+          </Sequence>
+        ))}
       </Sequence>
     ))}
     {SCENES.slice(1).map((scene) => (
@@ -180,7 +262,7 @@ export const BantayPromo = () => (
         <Swipe />
       </Sequence>
     ))}
-    <Sequence from={420} durationInFrames={14}>
+    <Sequence from={REVEAL_FROM} durationInFrames={14}>
       <Flash />
     </Sequence>
   </AbsoluteFill>
@@ -188,12 +270,9 @@ export const BantayPromo = () => (
 
 // ---------- Background, transitions ----------
 
-/** Dark green with moving glows that pulse on the beat once the music drops. */
 function Background() {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
-  const grooving = frame >= 420 && frame < 1680;
-  const pulse = grooving ? Math.exp(-(frame % BEAT) / 4) : 0;
   const big = Math.max(width, height);
   const blob = (x: number, y: number, size: number, color: string, alpha: number): CSSProperties => ({
     position: "absolute",
@@ -208,26 +287,9 @@ function Background() {
   return (
     <AbsoluteFill>
       <AbsoluteFill style={{ background: `radial-gradient(ellipse at 50% 0%, #0B3B1E 0%, ${DEEP} 60%)` }} />
-      <div
-        style={blob(
-          width * (0.2 + 0.1 * Math.sin(frame / 50)),
-          height * (0.25 + 0.08 * Math.cos(frame / 40)),
-          big * (0.8 + 0.08 * pulse),
-          "rgba(34,197,94,0.55)",
-          0.55 + 0.25 * pulse,
-        )}
-      />
-      <div
-        style={blob(
-          width * (0.85 + 0.08 * Math.cos(frame / 60)),
-          height * (0.75 + 0.1 * Math.sin(frame / 45)),
-          big * 0.7,
-          "rgba(163,230,53,0.4)",
-          0.4 + 0.2 * pulse,
-        )}
-      />
+      <div style={blob(width * (0.2 + 0.1 * Math.sin(frame / 50)), height * (0.25 + 0.08 * Math.cos(frame / 40)), big * 0.85, "rgba(34,197,94,0.55)", 0.6)} />
+      <div style={blob(width * (0.85 + 0.08 * Math.cos(frame / 60)), height * (0.75 + 0.1 * Math.sin(frame / 45)), big * 0.7, "rgba(163,230,53,0.4)", 0.45)} />
       <div style={blob(width * 0.5, height * (1.05 - 0.05 * Math.sin(frame / 70)), big * 0.6, "rgba(20,184,166,0.45)", 0.45)} />
-      {/* Fine grid that drifts slowly */}
       <AbsoluteFill
         style={{
           backgroundImage:
@@ -248,7 +310,6 @@ function SceneFade({ duration, children }: { duration: number; children: ReactNo
   return <AbsoluteFill style={{ opacity, transform: `scale(${scale})` }}>{children}</AbsoluteFill>;
 }
 
-/** A slanted green bar that sweeps across on every scene change. */
 function Swipe() {
   const frame = useCurrentFrame();
   const x = interpolate(frame, [0, 18], [-140, 140]);
@@ -277,9 +338,6 @@ function Flash() {
 
 // ---------- Text helpers ----------
 
-const pop = (frame: number, fps: number, delay: number) =>
-  spring({ frame: frame - delay, fps, config: { damping: 11, stiffness: 160, mass: 0.6 } });
-
 /** Words bounce in one after another; highlighted words get the lime gradient. */
 function PopWords({
   text,
@@ -287,12 +345,14 @@ function PopWords({
   size,
   highlight = [],
   align = "center",
+  gold = false,
 }: {
   text: string;
   delay?: number;
   size: number;
   highlight?: string[];
   align?: "center" | "left";
+  gold?: boolean;
 }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -311,7 +371,7 @@ function PopWords({
       }}
     >
       {text.split(" ").map((word, i) => {
-        const p = pop(frame, fps, delay + i * 3);
+        const p = spring({ frame: frame - delay - i * 3, fps, config: { damping: 11, stiffness: 160, mass: 0.6 } });
         const lit = highlight.includes(word.replace(/[^\w]/g, ""));
         return (
           <span
@@ -320,7 +380,7 @@ function PopWords({
               display: "inline-block",
               opacity: Math.min(1, p * 1.5),
               transform: `translateY(${(1 - p) * size * 0.6}px) scale(${0.6 + 0.4 * p}) rotate(${(1 - p) * -8}deg)`,
-              ...(lit ? HIGHLIGHT : null),
+              ...(lit ? (gold ? GOLD_TEXT : HIGHLIGHT) : null),
             }}
           >
             {word}
@@ -338,20 +398,22 @@ function Rise({ delay = 0, children, style }: { delay?: number; children: ReactN
   return <div style={{ opacity: p, transform: `translateY(${(1 - p) * 40}px)`, ...style }}>{children}</div>;
 }
 
-function Tag({ children, size }: { children: ReactNode; size: number }) {
+function Tag({ children, size, gold = false }: { children: ReactNode; size: number; gold?: boolean }) {
+  const color = gold ? GOLD : LIME;
   return (
     <div
       style={{
         display: "inline-flex",
-        background: "rgba(163,230,53,0.14)",
-        border: "2px solid rgba(163,230,53,0.5)",
-        color: LIME,
+        background: gold ? "rgba(250,204,21,0.16)" : "rgba(163,230,53,0.14)",
+        border: `2px solid ${gold ? "rgba(250,204,21,0.6)" : "rgba(163,230,53,0.5)"}`,
+        color,
         fontWeight: 800,
         fontSize: size,
         letterSpacing: 3,
         textTransform: "uppercase",
         padding: `${size * 0.35}px ${size * 0.9}px`,
         borderRadius: 999,
+        boxShadow: gold ? "0 0 40px rgba(250,204,21,0.35)" : undefined,
       }}
     >
       {children}
@@ -373,11 +435,13 @@ function AppIcon({ size, glow = true }: { size: number; glow?: boolean }) {
   );
 }
 
-// ---------- Phone with 3D tilt, shine and callouts ----------
+// ---------- Phones, callouts ----------
 
-const SCREEN_RATIO = 2532 / 1170;
+function Screen({ src }: { src: string }) {
+  return <Img src={staticFile(src)} style={{ width: "100%", display: "block" }} />;
+}
 
-function Phone3D({ src, width, delay, tilt }: { src: string; width: number; delay: number; tilt: number }) {
+function Phone3D({ children, width, delay, tilt, glow = 0 }: { children: ReactNode; width: number; delay: number; tilt: number; glow?: number }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const p = spring({ frame: frame - delay, fps, config: { damping: 14, stiffness: 90 } });
@@ -391,13 +455,13 @@ function Phone3D({ src, width, delay, tilt }: { src: string; width: number; dela
           padding: width * 0.03,
           background: "linear-gradient(145deg, #2A2A30, #0B0B0F)",
           borderRadius: width * 0.13,
-          boxShadow: `0 ${width * 0.1}px ${width * 0.25}px rgba(0,0,0,0.6), 0 0 ${width * 0.25}px rgba(34,197,94,0.35)`,
+          boxShadow: `0 ${width * 0.1}px ${width * 0.25}px rgba(0,0,0,0.6), 0 0 ${width * (0.25 + glow * 0.3)}px rgba(34,197,94,${0.35 + glow * 0.5})`,
           opacity: Math.min(1, p * 1.4),
           transform: `translateY(${(1 - p) * 500 + float}px) rotateY(${tilt + (1 - p) * 40}deg) rotateX(${6 + (1 - p) * 20}deg) rotateZ(${(1 - p) * -10}deg)`,
         }}
       >
         <div style={{ position: "relative", overflow: "hidden", borderRadius: width * 0.105 }}>
-          <Img src={staticFile(src)} style={{ width: "100%", height: width * 0.94 * SCREEN_RATIO, display: "block", objectFit: "cover" }} />
+          {children}
           <div
             style={{
               position: "absolute",
@@ -405,7 +469,7 @@ function Phone3D({ src, width, delay, tilt }: { src: string; width: number; dela
               bottom: 0,
               left: `${shine}%`,
               width: "45%",
-              background: "linear-gradient(100deg, transparent, rgba(255,255,255,0.35), transparent)",
+              background: "linear-gradient(100deg, transparent, rgba(255,255,255,0.3), transparent)",
             }}
           />
         </div>
@@ -414,16 +478,7 @@ function Phone3D({ src, width, delay, tilt }: { src: string; width: number; dela
   );
 }
 
-/**
- * Floating labels that pop out around the phone. `y` is a fraction of the stage height;
- * left labels hang off the stage's left edge and right labels off its right edge,
- * so they always stay inside the video frame.
- */
-const SLOTS = [
-  { side: "left", y: 0.16 },
-  { side: "right", y: 0.44 },
-  { side: "left", y: 0.74 },
-] as const;
+type Callout = { icon: string; text: string; at?: number };
 
 function CalloutBadge({ callout, delay, size }: { callout: Callout; delay: number; size: number }) {
   const frame = useCurrentFrame();
@@ -454,26 +509,46 @@ function CalloutBadge({ callout, delay, size }: { callout: Callout; delay: numbe
   );
 }
 
-function PhoneStage({ screens, callouts, width }: { screens: string[]; callouts: Callout[]; width: number }) {
+/** Left labels hang off the stage's left edge and right ones off its right edge, so they stay in frame. */
+const SLOTS = [
+  { side: "left", y: 0.16 },
+  { side: "right", y: 0.4 },
+  { side: "left", y: 0.62 },
+  { side: "right", y: 0.84 },
+] as const;
+
+function PhoneStage({
+  screens,
+  callouts,
+  width,
+  pulses = [],
+}: {
+  screens: ReactNode[];
+  callouts: Callout[];
+  width: number;
+  pulses?: number[];
+}) {
+  const frame = useCurrentFrame();
   const two = screens.length === 2;
   const phoneW = two ? width * 0.46 : width * 0.68;
   const calloutSize = Math.min(44, width * 0.062);
+  // A green glow flashes on the phone each time a barcode scans.
+  const glow = Math.max(0, ...pulses.map((at) => (frame >= at ? Math.exp(-(frame - at) / 6) : 0)));
   return (
     <div style={{ position: "relative", width, display: "flex", justifyContent: "center", gap: width * 0.04 }}>
-      {screens.map((src, i) => (
-        <div key={src} style={two ? { marginTop: i * width * 0.12 } : undefined}>
-          <Phone3D src={src} width={phoneW} delay={6 + i * 6} tilt={two ? (i === 0 ? 14 : -14) : -12} />
+      {screens.map((screen, i) => (
+        <div key={i} style={two ? { marginTop: i * width * 0.12 } : undefined}>
+          <Phone3D width={phoneW} delay={6 + i * 6} tilt={two ? (i === 0 ? 14 : -14) : -12} glow={glow}>
+            {screen}
+          </Phone3D>
         </div>
       ))}
       {callouts.map((c, i) => {
         const slot = SLOTS[i];
         const edge = -calloutSize * 0.8;
         return (
-          <div
-            key={c.text}
-            style={{ position: "absolute", top: `${slot.y * 100}%`, ...(slot.side === "left" ? { left: edge } : { right: edge }) }}
-          >
-            <CalloutBadge callout={c} delay={28 + i * 12} size={calloutSize} />
+          <div key={c.text} style={{ position: "absolute", top: `${slot.y * 100}%`, ...(slot.side === "left" ? { left: edge } : { right: edge }) }}>
+            <CalloutBadge callout={c} delay={c.at ?? 28 + i * 12} size={calloutSize} />
           </div>
         );
       })}
@@ -487,15 +562,14 @@ function Hook() {
   const landscape = useLandscape();
   const frame = useCurrentFrame();
   const size = landscape ? 150 : 140;
-  const zoom = interpolate(frame, [0, 240], [1, 1.08]);
   return (
-    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", gap: 20, transform: `scale(${zoom})`, padding: 80 }}>
+    <AbsoluteFill
+      style={{ alignItems: "center", justifyContent: "center", gap: 20, transform: `scale(${interpolate(frame, [0, 120], [1, 1.06])})`, padding: 80 }}
+    >
       <PopWords text="Your tindahan" size={size} highlight={["tindahan"]} delay={6} />
-      <PopWords text="works hard." size={size} delay={30} />
-      <Rise delay={90} style={{ marginTop: 40 }}>
-        <div style={{ fontSize: landscape ? 64 : 60, fontWeight: 700, color: SOFT, textAlign: "center" }}>
-          Your app should too.
-        </div>
+      <PopWords text="works hard." size={size} delay={26} />
+      <Rise delay={50} style={{ marginTop: 40 }}>
+        <div style={{ fontSize: landscape ? 64 : 60, fontWeight: 700, color: SOFT, textAlign: "center" }}>Your app should too.</div>
       </Rise>
     </AbsoluteFill>
   );
@@ -505,12 +579,10 @@ function Problem({ text }: { text: string }) {
   const landscape = useLandscape();
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const stamp = spring({ frame: frame - 26, fps, config: { damping: 10, stiffness: 200 } });
-  const shake = frame >= 26 && frame < 34 ? Math.sin(frame * 3) * 12 : 0;
+  const stamp = spring({ frame: frame - 24, fps, config: { damping: 10, stiffness: 200 } });
+  const shake = frame >= 24 && frame < 32 ? Math.sin(frame * 3) * 12 : 0;
   return (
-    <AbsoluteFill
-      style={{ alignItems: "center", justifyContent: "center", padding: landscape ? 160 : 80, transform: `translateX(${shake}px)` }}
-    >
+    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: landscape ? 160 : 80, transform: `translateX(${shake}px)` }}>
       <PopWords text={text} size={landscape ? 130 : 120} />
       <div
         style={{
@@ -538,8 +610,7 @@ function Problem({ text }: { text: string }) {
   );
 }
 
-/** Spinning light rays behind the logo. */
-function Rays({ rotate, opacity = 0.5 }: { rotate: number; opacity?: number }) {
+function Rays({ rotate, opacity = 0.5, color = "rgba(163,230,53,0.16)" }: { rotate: number; opacity?: number; color?: string }) {
   return (
     <div
       style={{
@@ -550,7 +621,7 @@ function Rays({ rotate, opacity = 0.5 }: { rotate: number; opacity?: number }) {
         top: "50%",
         marginLeft: -1600,
         marginTop: -1600,
-        background: `repeating-conic-gradient(from ${rotate}deg, rgba(163,230,53,0.16) 0deg 8deg, transparent 8deg 22deg)`,
+        background: `repeating-conic-gradient(from ${rotate}deg, ${color} 0deg 8deg, transparent 8deg 22deg)`,
         maskImage: "radial-gradient(circle, black 0%, transparent 55%)",
         opacity,
       }}
@@ -604,7 +675,7 @@ function Corner({ index }: { index: number }) {
     >
       <AppIcon size={60} glow={false} />
       Bantay
-      <span style={{ color: SOFT, fontWeight: 600, marginLeft: 8 }}>{String(index).padStart(2, "0")} / 08</span>
+      <span style={{ color: SOFT, fontWeight: 600, marginLeft: 8 }}>{String(index).padStart(2, "0")} / 09</span>
     </div>
   );
 }
@@ -615,47 +686,69 @@ function FeatureText({
   highlight,
   lines,
   landscape,
+  gold = false,
 }: {
   tag: string;
   title: string;
   highlight: string[];
   lines: string[];
   landscape: boolean;
+  gold?: boolean;
 }) {
   const align = landscape ? "left" : "center";
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: landscape ? "flex-start" : "center", gap: landscape ? 30 : 26 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: landscape ? "flex-start" : "center", gap: landscape ? 28 : 24 }}>
       <Rise>
-        <Tag size={landscape ? 30 : 34}>{tag}</Tag>
+        <Tag size={landscape ? 30 : 34} gold={gold}>
+          {tag}
+        </Tag>
       </Rise>
-      <PopWords text={title} size={landscape ? 112 : 108} highlight={highlight} delay={4} align={align} />
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: landscape ? "flex-start" : "center" }}>
-        {lines.map((line, i) => (
-          <Rise key={line} delay={18 + i * 6}>
-            <div style={{ fontSize: landscape ? 42 : 44, fontWeight: 600, color: SOFT, textAlign: align }}>
-              <span style={{ color: LIME, fontWeight: 900 }}>✓ </span>
-              {line}
-            </div>
-          </Rise>
-        ))}
-      </div>
+      <PopWords text={title} size={landscape ? 108 : 104} highlight={highlight} delay={4} align={align} gold={gold} />
+      {lines.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: landscape ? "flex-start" : "center" }}>
+          {lines.map((line, i) => (
+            <Rise key={line} delay={18 + i * 6}>
+              <div style={{ fontSize: landscape ? 42 : 44, fontWeight: 600, color: SOFT, textAlign: align }}>
+                <span style={{ color: gold ? GOLD : LIME, fontWeight: 900 }}>✓ </span>
+                {line}
+              </div>
+            </Rise>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function Feature({ data, index }: { data: FeatureData; index: number }) {
+function Feature({
+  index,
+  tag,
+  title,
+  highlight,
+  lines,
+  screens,
+  callouts,
+  scanPulse,
+}: {
+  index: number;
+  tag: string;
+  title: string;
+  highlight: string[];
+  lines: string[];
+  screens: ReactNode[];
+  callouts: Callout[];
+  scanPulse?: number[];
+}) {
   const landscape = useLandscape();
-  const text = <FeatureText {...data} landscape={landscape} />;
-  const two = data.screens.length === 2;
+  const text = <FeatureText tag={tag} title={title} highlight={highlight} lines={lines} landscape={landscape} />;
+  const two = screens.length === 2;
   if (landscape) {
     return (
       <AbsoluteFill>
         <Corner index={index} />
-        <div style={{ position: "absolute", left: 130, top: 0, bottom: 0, width: 860, display: "flex", alignItems: "center" }}>
-          {text}
-        </div>
-        <div style={{ position: "absolute", right: 110, top: two ? 90 : 110, width: 720, display: "flex", justifyContent: "center" }}>
-          <PhoneStage screens={data.screens} callouts={data.callouts} width={two ? 720 : 560} />
+        <div style={{ position: "absolute", left: 130, top: 0, bottom: 0, width: 860, display: "flex", alignItems: "center" }}>{text}</div>
+        <div style={{ position: "absolute", right: 110, top: two ? 90 : 100, width: 720, display: "flex", justifyContent: "center" }}>
+          <PhoneStage screens={screens} callouts={callouts} width={two ? 720 : 580} pulses={scanPulse} />
         </div>
       </AbsoluteFill>
     );
@@ -665,102 +758,177 @@ function Feature({ data, index }: { data: FeatureData; index: number }) {
       <Corner index={index} />
       <div style={{ marginTop: 200, padding: "0 60px" }}>{text}</div>
       <div style={{ position: "absolute", top: 800, left: 0, right: 0, display: "flex", justifyContent: "center" }}>
-        <PhoneStage screens={data.screens} callouts={data.callouts} width={two ? 900 : 700} />
+        <PhoneStage screens={screens} callouts={callouts} width={two ? 900 : 700} pulses={scanPulse} />
       </div>
     </AbsoluteFill>
   );
 }
 
-/** Barcodes can't be screenshotted, so this scene draws the scan instead. */
-function Scanner({ index }: { index: number }) {
+/** Counts up to a peso amount. */
+function CountUp({ to, delay, size }: { to: number; delay: number; size: number }) {
+  const frame = useCurrentFrame();
+  const p = interpolate(frame - delay, [0, 40], [0, 1], clamp);
+  const eased = 1 - Math.pow(1 - p, 3);
+  return (
+    <span style={{ fontSize: size, fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>
+      ₱{Math.round(to * eased).toLocaleString("en-US")}
+    </span>
+  );
+}
+
+/** HIGHLIGHT: Bantay predicts sales and profit, then the profit calculator. */
+function Forecast() {
   const landscape = useLandscape();
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const bars = Array.from({ length: 44 }, (_, i) => ((i * 37) % 7) + 2);
-  const lineY = interpolate(frame % 30, [0, 15, 30], [0, 1, 0]);
-  const chips = [
-    { at: 30, text: "+ Coke 290ml · ₱20" },
-    { at: 45, text: "+ Kopiko 3in1 · ₱10" },
-    { at: 60, text: "+ Piattos · ₱18" },
+  const { durationInFrames } = { durationInFrames: SCENES[11].duration };
+  const switchAt = Math.round(durationInFrames * 0.55);
+  const calc = interpolate(frame, [switchAt, switchAt + 10], [0, 1], clamp);
+  const cards = [
+    { label: "Next 7 days", value: 10295, delay: 26 },
+    { label: "Next 30 days", value: 44014, delay: 36 },
+    { label: "Profit (30 days)", value: 8210, delay: 46, gold: true },
   ];
-  const card = (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 28 }}>
-      <Rise delay={8}>
-        <div
-          style={{
-            position: "relative",
-            width: landscape ? 680 : 760,
-            height: landscape ? 320 : 340,
-            background: WHITE,
-            borderRadius: 40,
-            padding: 40,
-            boxSizing: "border-box",
-            boxShadow: "0 0 90px rgba(34,197,94,0.45)",
-            display: "flex",
-            gap: 6,
-            justifyContent: "center",
-          }}
-        >
-          {bars.map((w, i) => (
-            <div key={i} style={{ width: w * 2.2, background: i % 3 === 1 ? "transparent" : "#0F172A" }} />
-          ))}
-          <div
-            style={{
-              position: "absolute",
-              left: 20,
-              right: 20,
-              top: 30 + lineY * (landscape ? 250 : 270),
-              height: 8,
-              background: "#EF4444",
-              boxShadow: "0 0 30px 6px rgba(239,68,68,0.8)",
-              borderRadius: 4,
-            }}
-          />
-        </div>
-      </Rise>
-      {chips.map((chip) => {
-        const p = spring({ frame: frame - chip.at, fps, config: { damping: 9, stiffness: 180, mass: 0.6 } });
+  const cardW = landscape ? 270 : 300;
+  const cardRow = (
+    <div style={{ display: "flex", gap: 22, marginTop: landscape ? 36 : 30 }}>
+      {cards.map((c) => {
+        const p = spring({ frame: frame - c.delay, fps, config: { damping: 12, stiffness: 140 } });
         return (
           <div
-            key={chip.text}
+            key={c.label}
             style={{
-              opacity: Math.min(1, p * 2),
-              transform: `scale(${p})`,
-              background: `linear-gradient(90deg, ${GREEN}, ${LIME})`,
-              color: "#052E16",
-              fontSize: landscape ? 46 : 48,
-              fontWeight: 900,
-              padding: "18px 46px",
-              borderRadius: 999,
-              boxShadow: "0 10px 40px rgba(34,197,94,0.5)",
+              width: cardW,
+              padding: "26px 26px",
+              boxSizing: "border-box",
+              borderRadius: 30,
+              background: c.gold ? "linear-gradient(135deg, rgba(250,204,21,0.25), rgba(251,146,60,0.18))" : "rgba(255,255,255,0.08)",
+              border: `2px solid ${c.gold ? "rgba(250,204,21,0.7)" : "rgba(163,230,53,0.35)"}`,
+              boxShadow: c.gold ? "0 0 60px rgba(250,204,21,0.35)" : "0 20px 50px rgba(0,0,0,0.3)",
+              color: c.gold ? GOLD : WHITE,
+              opacity: Math.min(1, p * 1.5),
+              transform: `scale(${0.7 + 0.3 * p}) translateY(${(1 - p) * 40}px)`,
             }}
           >
-            {chip.text}
+            <div style={{ fontSize: 28, fontWeight: 700, color: SOFT }}>{c.label}</div>
+            <CountUp to={c.value} delay={c.delay} size={landscape ? 58 : 62} />
           </div>
         );
       })}
     </div>
   );
-  const text = (
-    <FeatureText
-      tag="Barcode scanner"
-      title="Scan. Beep. Added."
-      highlight={["Beep"]}
-      lines={["Scan item after item into the cart", "New product? Its name fills itself in"]}
-      landscape={landscape}
-    />
+  // A rising line chart drawn behind the text
+  const draw = interpolate(frame, [10, 60], [1, 0], clamp);
+  const chart = (
+    <svg viewBox="0 0 600 220" style={{ position: "absolute", width: landscape ? 900 : 1000, opacity: 0.35, ...(landscape ? { left: 80, top: 640 } : { left: 40, top: 560 }) }}>
+      <path d="M0 200 L80 170 L160 180 L240 120 L320 130 L400 70 L480 80 L600 10" fill="none" stroke={LIME} strokeWidth={8} strokeLinecap="round" strokeDasharray={900} strokeDashoffset={900 * draw} />
+    </svg>
   );
-  return landscape ? (
-    <AbsoluteFill>
-      <Corner index={index} />
-      <div style={{ position: "absolute", left: 130, top: 0, bottom: 0, width: 860, display: "flex", alignItems: "center" }}>{text}</div>
-      <div style={{ position: "absolute", right: 110, top: 0, bottom: 0, display: "flex", alignItems: "center" }}>{card}</div>
-    </AbsoluteFill>
-  ) : (
+  const text = (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: landscape ? "flex-start" : "center" }}>
+      <FeatureText tag="⭐ The best part" title="Bantay predicts your profit" highlight={["predicts", "profit"]} lines={[]} landscape={landscape} gold />
+      {cardRow}
+      <Rise delay={switchAt} style={{ marginTop: 34 }}>
+        <div style={{ fontSize: landscape ? 42 : 44, fontWeight: 700, color: SOFT, textAlign: landscape ? "left" : "center" }}>
+          <span style={{ color: GOLD, fontWeight: 900 }}>✓ </span>Profit calculator: know what you'll earn
+        </div>
+      </Rise>
+    </div>
+  );
+  const screens = [
+    <div key="f" style={{ position: "relative" }}>
+      <Screen src="forecast.png" />
+      <div style={{ position: "absolute", inset: 0, opacity: calc }}>
+        <Screen src="calculator.png" />
+      </div>
+    </div>,
+  ];
+  const callouts: Callout[] = [
+    { icon: "🔮", text: "₱44,014 next 30 days", at: 50 },
+    { icon: "📈", text: "Sales up 1.9%", at: 64 },
+    { icon: "💰", text: "You earn ₱40.00", at: switchAt + 8 },
+  ];
+  if (landscape) {
+    return (
+      <AbsoluteFill>
+        <Corner index={7} />
+        {chart}
+        <div style={{ position: "absolute", left: 130, top: 0, bottom: 0, width: 920, display: "flex", alignItems: "center" }}>{text}</div>
+        <div style={{ position: "absolute", right: 90, top: 100, width: 640, display: "flex", justifyContent: "center" }}>
+          <PhoneStage screens={screens} callouts={callouts} width={560} />
+        </div>
+      </AbsoluteFill>
+    );
+  }
+  return (
     <AbsoluteFill style={{ alignItems: "center" }}>
-      <Corner index={index} />
-      <div style={{ marginTop: 200, padding: "0 60px" }}>{text}</div>
-      <div style={{ marginTop: 110 }}>{card}</div>
+      <Corner index={7} />
+      {chart}
+      <div style={{ marginTop: 190, padding: "0 50px" }}>{text}</div>
+      <div style={{ position: "absolute", top: 930, left: 0, right: 0, display: "flex", justifyContent: "center" }}>
+        <PhoneStage screens={screens} callouts={callouts} width={640} />
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+/** HIGHLIGHT: English, Filipino and Waray, each phone appearing as its language is spoken. */
+function Languages() {
+  const landscape = useLandscape();
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const [lang, fil, war] = LANG_LINES;
+  const items = [
+    { src: "dash-en.png", name: "English", hello: "Hi, Rosa!", at: sec(lang.at + voice.lang - 0.7) },
+    { src: "dash-fil.png", name: "Filipino", hello: "Magandang araw!", at: sec(fil.at) },
+    { src: "dash-war.png", name: "Waray", hello: "Maupay nga adlaw!", at: sec(war.at) },
+  ];
+  const active = items.reduce((idx, it, i) => (frame >= it.at ? i : idx), -1);
+  const phoneW = landscape ? 250 : 300;
+  return (
+    <AbsoluteFill style={{ alignItems: "center" }}>
+      <Corner index={9} />
+      <div style={{ marginTop: landscape ? 100 : 210, padding: "0 60px", display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
+        <Rise>
+          <Tag size={landscape ? 30 : 34}>3 languages</Tag>
+        </Rise>
+        <PopWords text="Speaks your language" size={landscape ? 92 : 104} highlight={["your", "language"]} delay={4} />
+      </div>
+      <div style={{ display: "flex", gap: landscape ? 90 : 30, marginTop: landscape ? 40 : 110, alignItems: "flex-start" }}>
+        {items.map((it, i) => {
+          const p = spring({ frame: frame - it.at, fps, config: { damping: 11, stiffness: 140 } });
+          const isActive = i === active;
+          return (
+            <div key={it.name} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 30, opacity: Math.min(1, p * 1.5) }}>
+              <div
+                style={{
+                  fontSize: landscape ? 40 : 38,
+                  fontWeight: 900,
+                  color: isActive ? "#052E16" : WHITE,
+                  background: isActive ? `linear-gradient(90deg, ${GREEN}, ${LIME})` : "rgba(255,255,255,0.1)",
+                  padding: "12px 30px",
+                  borderRadius: 999,
+                  transform: `scale(${p})`,
+                }}
+              >
+                {it.name}
+              </div>
+              <div
+                style={{
+                  transformOrigin: "top center",
+                  transform: `scale(${(isActive ? 1.06 : 0.94) * (0.7 + 0.3 * p)}) translateY(${(1 - p) * 200}px)`,
+                  filter: isActive ? undefined : "brightness(0.7)",
+                }}
+              >
+                <Phone3D width={phoneW} delay={it.at} tilt={0} glow={isActive ? 0.6 : 0}>
+                  <Screen src={it.src} />
+                </Phone3D>
+              </div>
+              <div style={{ fontSize: landscape ? 38 : 34, fontWeight: 800, color: isActive ? LIME : SOFT, transform: `scale(${p})` }}>“{it.hello}”</div>
+            </div>
+          );
+        })}
+      </div>
     </AbsoluteFill>
   );
 }
@@ -772,10 +940,10 @@ function Trust() {
   const tiles = [
     { icon: "📶", title: "Works offline", text: "No Wi-Fi needed" },
     { icon: "🔒", title: "Encrypted", text: "Data stays on your phone" },
-    { icon: "💾", title: "Backup file", text: "Move to a new phone" },
-    { icon: "🗣️", title: "3 languages", text: "English · Filipino · Waray" },
     { icon: "🚫", title: "No ads", text: "No account, no tracking" },
+    { icon: "💾", title: "Backup file", text: "Move to a new phone" },
     { icon: "🎨", title: "Your style", text: "Light, dark, 8 colors" },
+    { icon: "🆓", title: "Free", text: "For every tindahan" },
   ];
   return (
     <AbsoluteFill style={{ alignItems: "center", paddingTop: landscape ? 90 : 220 }}>
@@ -790,7 +958,7 @@ function Trust() {
         }}
       >
         {tiles.map((tile, i) => {
-          const p = spring({ frame: frame - 14 - i * 7, fps, config: { damping: 12, stiffness: 120 } });
+          const p = spring({ frame: frame - 10 - i * 7, fps, config: { damping: 12, stiffness: 120 } });
           return (
             <div
               key={tile.title}
@@ -831,11 +999,9 @@ function Outro() {
       </div>
       <PopWords text="Bantay" size={landscape ? 190 : 210} delay={6} />
       <Rise delay={16}>
-        <div style={{ fontSize: landscape ? 50 : 56, fontWeight: 800, color: WHITE, textAlign: "center" }}>
-          Bantay sa tindahan mo.
-        </div>
+        <div style={{ fontSize: landscape ? 50 : 56, fontWeight: 800, color: WHITE, textAlign: "center" }}>Bantay sa tindahan mo.</div>
       </Rise>
-      <Rise delay={24}>
+      <Rise delay={30}>
         <div
           style={{
             position: "relative",
@@ -863,7 +1029,7 @@ function Outro() {
           />
         </div>
       </Rise>
-      <Rise delay={32}>
+      <Rise delay={38}>
         <div style={{ fontSize: landscape ? 36 : 40, fontWeight: 700, color: SOFT }}>Offline · Private · Free</div>
       </Rise>
     </AbsoluteFill>

@@ -1,13 +1,13 @@
 {
   "name": "bantay-promo",
   "private": true,
-  "description": "60-second promotional video for Bantay (vertical and landscape), made with Remotion.",
+  "description": "Promotional video for Bantay with voice-over (vertical and landscape), made with Remotion.",
   "scripts": {
     "studio": "remotion studio",
     "render": "npm run render:vertical && npm run render:landscape",
     "render:vertical": "remotion render BantayPromo out/bantay-promo-vertical.mp4",
     "render:landscape": "remotion render BantayPromoLandscape out/bantay-promo-landscape.mp4",
-    "music": "python3 scripts/make-music.py && ffmpeg -y -i public/music.wav -b:a 192k public/music.mp3"
+    "voice": "python3 scripts/make-voice.py kokoro-v1.0.onnx voices-v1.0.bin"
   },
   "dependencies": {
     "@remotion/cli": "4.0.535",
