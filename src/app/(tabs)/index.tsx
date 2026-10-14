@@ -77,7 +77,7 @@ export default function Index() {
           <Text style={styles.bigtext}>Name san User ddi</Text>
         </View>
         <Pressable
-          onPress={() => router.navigate("/tabs/Benta")}
+          onPress={() => router.navigate("/(tabs)/Benta")}
           style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
           accessibilityLabel="Bagong benta"
         >
@@ -94,7 +94,7 @@ export default function Index() {
             icon="cash-outline"
             color={colors.primary}
             tint={colors.primarySoft}
-            onPress={() => router.navigate("/tabs/Benta")}
+            onPress={() => router.navigate("/(tabs)/Benta")}
           />
           <StatCard
             label="Transaksyon"
@@ -102,7 +102,7 @@ export default function Index() {
             icon="receipt-outline"
             color={colors.blue}
             tint={colors.blueSoft}
-            onPress={() => router.navigate("/tabs/Reports")}
+            onPress={() => router.navigate("/(tabs)/Reports")}
           />
         </View>
         <View style={styles.row}>
@@ -112,7 +112,7 @@ export default function Index() {
             icon="alert-circle-outline"
             color={colors.orange}
             tint={colors.orangeSoft}
-            onPress={() => router.navigate("/tabs/Inventory")}
+            onPress={() => router.navigate("/(tabs)/Inventory")}
           />
           <StatCard
             label="Kabuuang utang"
@@ -120,7 +120,7 @@ export default function Index() {
             icon="people-outline"
             color={colors.red}
             tint={colors.redSoft}
-            onPress={() => router.navigate("/tabs/Utang")}
+            onPress={() => router.navigate("/(tabs)/Utang")}
           />
         </View>
       </View>
@@ -168,7 +168,7 @@ export default function Index() {
             <Text style={styles.sectionTitle}>Running low</Text>
           </View>
           <Pressable
-            onPress={() => router.navigate("/tabs/Inventory")}
+            onPress={() => router.navigate("/(tabs)/Inventory")}
             style={({ pressed }) => [styles.lowLink, pressed && styles.pressed]}
             hitSlop={8}
           >
@@ -216,7 +216,7 @@ export default function Index() {
             <Text style={styles.sectionSub}>Pinakabagong transaksyon</Text>
           </View>
           <Pressable
-            onPress={() => router.navigate("/tabs/Reports")}
+            onPress={() => router.navigate("/(tabs)/Reports")}
             style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}
           >
             <Text style={styles.linkText}>View all</Text>
