@@ -59,13 +59,18 @@ export type Sale = {
   customerName?: string;
   gcashRef?: string;
   cashReceived?: number;
+  /** Who rang up the sale (owner or staff name). */
+  by?: string;
+  /** Set when the sale was cancelled; voided sales don't count in totals. */
+  voided?: { date: string; by: string; reason: string };
 };
 
 export type LedgerEntry = {
   id: string;
   /** ISO timestamp. */
   date: string;
-  type: 'utang' | 'bayad';
+  /** 'void' reverses the utang of a cancelled sale. */
+  type: 'utang' | 'bayad' | 'void';
   amount: number;
   /** How a bayad was paid. */
   method?: 'cash' | 'gcash';
@@ -82,6 +87,8 @@ export type Debtor = {
   entries: LedgerEntry[];
 };
 
+import type { Accent } from '@/constants/theme';
+
 export type Language = 'fil' | 'en';
 export type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -94,6 +101,38 @@ export type Settings = {
   defaultLimit: number;
   language: Language;
   themeMode: ThemeMode;
+  accent: Accent;
+  /** Owner PIN. Empty means no lock screen and no staff mode. */
+  ownerPin: string;
+};
+
+export type StaffMember = {
+  id: string;
+  name: string;
+  pin: string;
+};
+
+export type ActivityKind =
+  | 'sale'
+  | 'void'
+  | 'restock'
+  | 'product'
+  | 'utang'
+  | 'bayad'
+  | 'closing'
+  | 'backup'
+  | 'restore'
+  | 'settings'
+  | 'login'
+  | 'wipe';
+
+export type ActivityEntry = {
+  id: string;
+  date: string;
+  /** Name of the owner or staff member who did it. */
+  who: string;
+  kind: ActivityKind;
+  text: string;
 };
 
 export type DayClosing = {
@@ -143,6 +182,8 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultLimit: 2000,
   language: 'fil',
   themeMode: 'system',
+  accent: 'green',
+  ownerPin: '',
 };
 
 export function saleItem(p: Product, unit: SellUnit, qty: number): SaleItem {

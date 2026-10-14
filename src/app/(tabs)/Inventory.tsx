@@ -55,7 +55,8 @@ export default function Inventory() {
   const t = useT();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { products, sales, settings, ready, restock, addProduct, updateProduct } = useStore();
+  const { products, sales, settings, ready, restock, addProduct, updateProduct, can } = useStore();
+  const canManage = can("manageProducts");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("Lahat");
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -101,7 +102,7 @@ export default function Inventory() {
   function stockColor(p: Product) {
     if (p.stock === 0) return colors.red;
     if (isLowStock(p)) return colors.orange;
-    return colors.primary;
+    return colors.success;
   }
 
   function openRestock(product: Product) {
@@ -144,7 +145,8 @@ export default function Inventory() {
   function handleNewBarcode(code: string) {
     const found = products.find((p) => p.barcode === code);
     if (found) openRestock(found);
-    else openAdd(code);
+    else if (canManage) openAdd(code);
+    else Alert.alert(t("Para sa owner lang"), t("Ang may-ari lang ang makakapagdagdag ng bagong produkto."));
   }
 
   function saveProduct() {
@@ -369,13 +371,15 @@ export default function Inventory() {
       />
 
       {/* Add product */}
-      <Pressable
-        onPress={() => openAdd()}
-        style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
-        accessibilityLabel={t("Magdagdag ng produkto")}
-      >
-        <Ionicons name="add" size={28} color="#fff" />
-      </Pressable>
+      {canManage && (
+        <Pressable
+          onPress={() => openAdd()}
+          style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
+          accessibilityLabel={t("Magdagdag ng produkto")}
+        >
+          <Ionicons name="add" size={28} color="#fff" />
+        </Pressable>
+      )}
 
       {/* Restock sheet */}
       <BottomSheet
@@ -400,7 +404,7 @@ export default function Inventory() {
               </View>
               <View style={styles.stat}>
                 <Text style={styles.statLabel}>{t("Tubo / {unit}", { unit: sheetProduct.unit })}</Text>
-                <Text style={[styles.statValue, { color: colors.primary }]}>
+                <Text style={[styles.statValue, { color: colors.success }]}>
                   {peso(sheetProduct.price - sheetProduct.cost)}
                 </Text>
               </View>
@@ -425,7 +429,11 @@ export default function Inventory() {
               </View>
             )}
 
-            <Pressable onPress={() => setScanTarget("link")} style={styles.barcodeRow}>
+            <Pressable
+              onPress={() => canManage && setScanTarget("link")}
+              disabled={!canManage}
+              style={styles.barcodeRow}
+            >
               <Ionicons name="barcode-outline" size={20} color={colors.text} />
               <Text style={styles.barcodeText}>
                 {sheetProduct.barcode ?? t("Walang barcode")}
@@ -501,7 +509,7 @@ export default function Inventory() {
                 <Ionicons
                   name={lookup === "found" ? "checkmark-circle" : "information-circle-outline"}
                   size={16}
-                  color={lookup === "found" ? colors.primary : colors.muted}
+                  color={lookup === "found" ? colors.success : colors.muted}
                 />
               )}
               <Text style={styles.lookupText}>

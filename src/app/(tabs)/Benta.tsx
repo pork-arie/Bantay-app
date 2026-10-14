@@ -438,7 +438,7 @@ export default function Benta() {
                   <Text
                     style={[
                       styles.infoValue,
-                      { color: change < 0 ? colors.red : colors.primary },
+                      { color: change < 0 ? colors.red : colors.success },
                     ]}
                   >
                     {peso(Math.abs(change))}
@@ -1063,7 +1063,7 @@ const createStyles = (colors: Colors) =>
       fontWeight: "700",
     },
     scanDone: {
-      backgroundColor: "#16A34A",
+      backgroundColor: colors.primary,
       borderRadius: radius.md,
       paddingHorizontal: 18,
       paddingVertical: 12,

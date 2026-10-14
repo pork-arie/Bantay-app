@@ -16,6 +16,7 @@ import BottomSheet from "@/components/BottomSheet";
 import { avatarTints, initials, peso, radius, shadow, type Colors } from "@/constants/theme";
 import type { Debtor } from "@/data/sample";
 import { useT } from "@/i18n";
+import { printUtangList } from "@/lib/receipt";
 import { success, warning } from "@/store/haptics";
 import { balanceOf, formatDate, totalUtang } from "@/store/selectors";
 import { useStore } from "@/store/StoreProvider";
@@ -147,7 +148,7 @@ export default function Utang() {
           <Text style={styles.itemBalance}>{peso(bal)}</Text>
         ) : (
           <View style={styles.paidPill}>
-            <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
+            <Ionicons name="checkmark-circle" size={14} color={colors.success} />
             <Text style={styles.paidText}>{t("Bayad na")}</Text>
           </View>
         )}
@@ -166,9 +167,18 @@ export default function Utang() {
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <View style={{ gap: 16, marginBottom: 4 }}>
-            <View>
-              <Text style={styles.title}>{t("Utang")}</Text>
-              <Text style={styles.subtitle}>{t("Listahan ng mga may utang")}</Text>
+            <View style={styles.titleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.title}>{t("Utang")}</Text>
+                <Text style={styles.subtitle}>{t("Listahan ng mga may utang")}</Text>
+              </View>
+              <Pressable
+                onPress={() => printUtangList(debtors, settings, t).catch(() => {})}
+                style={({ pressed }) => [styles.printBtn, pressed && styles.pressed]}
+                accessibilityLabel={t("I-print ang listahan ng utang")}
+              >
+                <Ionicons name="print-outline" size={20} color={colors.text} />
+              </Pressable>
             </View>
 
             <View style={styles.hero}>
@@ -244,7 +254,7 @@ export default function Utang() {
               <Text
                 style={[
                   styles.balanceValue,
-                  balanceOf(selected) <= 0 && { color: colors.primary },
+                  balanceOf(selected) <= 0 && { color: colors.success },
                 ]}
               >
                 {peso(balanceOf(selected))}
@@ -275,7 +285,7 @@ export default function Utang() {
                   disabled={balanceOf(selected) <= 0}
                   style={[
                     styles.actionBtn,
-                    { backgroundColor: colors.primary },
+                    { backgroundColor: colors.success },
                     balanceOf(selected) <= 0 && { opacity: 0.4 },
                   ]}
                 >
@@ -384,7 +394,8 @@ export default function Utang() {
             <Text style={styles.label}>{t("Kasaysayan")}</Text>
             <ScrollView style={{ maxHeight: 220 }}>
               {selected.entries.map((e, i) => {
-                const isPay = e.type === "bayad";
+                const isPay = e.type !== "utang";
+                const isVoid = e.type === "void";
                 return (
                   <View
                     key={e.id}
@@ -396,18 +407,22 @@ export default function Utang() {
                     <View
                       style={[
                         styles.entryIcon,
-                        { backgroundColor: isPay ? colors.primarySoft : colors.orangeSoft },
+                        { backgroundColor: isPay ? colors.successSoft : colors.orangeSoft },
                       ]}
                     >
                       <Ionicons
                         name={isPay ? "arrow-down" : "arrow-up"}
                         size={14}
-                        color={isPay ? colors.primary : colors.orange}
+                        color={isPay ? colors.success : colors.orange}
                       />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.entryTitle}>
-                        {isPay ? `${t("Bayad")}${e.method === "gcash" ? " · GCash" : ""}` : t("Utang")}
+                        {isVoid
+                          ? t("Na-void na benta")
+                          : isPay
+                            ? `${t("Bayad")}${e.method === "gcash" ? " · GCash" : ""}`
+                            : t("Utang")}
                       </Text>
                       <Text style={styles.itemMeta}>
                         {formatDate(e.date, settings.language)}
@@ -417,7 +432,7 @@ export default function Utang() {
                     <Text
                       style={[
                         styles.entryAmount,
-                        { color: isPay ? colors.primary : colors.text },
+                        { color: isPay ? colors.success : colors.text },
                       ]}
                     >
                       {isPay ? "−" : "+"}
@@ -512,9 +527,22 @@ const createStyles = (colors: Colors) =>
     color: colors.muted,
     marginTop: 2,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  printBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   hero: {
-    // Fixed deep red so the white text stays readable in dark mode too.
-    backgroundColor: "#DC2626",
+    backgroundColor: colors.dark,
     borderRadius: radius.lg,
     padding: 20,
     ...shadow,
@@ -523,7 +551,7 @@ const createStyles = (colors: Colors) =>
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "rgba(248,113,113,0.18)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 14,
@@ -533,7 +561,7 @@ const createStyles = (colors: Colors) =>
     fontSize: 13,
   },
   heroValue: {
-    color: "#fff",
+    color: "#FCA5A5",
     fontSize: 30,
     fontWeight: "700",
     marginTop: 2,
@@ -621,13 +649,13 @@ const createStyles = (colors: Colors) =>
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.successSoft,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   paidText: {
-    color: colors.primary,
+    color: colors.success,
     fontSize: 12,
     fontWeight: "600",
   },

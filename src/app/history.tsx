@@ -3,6 +3,7 @@ import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-n
 import { Ionicons } from "@expo/vector-icons";
 
 import BottomSheet from "@/components/BottomSheet";
+import OwnerOnly from "@/components/OwnerOnly";
 import { peso, radius, shadow, type Colors } from "@/constants/theme";
 import type { Sale } from "@/data/sample";
 import { PAYMENT_KEYS, useT } from "@/i18n";
@@ -24,7 +25,7 @@ export default function HistoryScreen() {
   const t = useT();
   const { colors, pay } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { sales, settings } = useStore();
+  const { sales, settings, can } = useStore();
   const lang = settings.language;
 
   const months = useMemo(() => monthlyHistory(sales, 6), [sales]);
@@ -166,6 +167,8 @@ export default function HistoryScreen() {
     );
   }
 
+  if (!can("viewProfit")) return <OwnerOnly />;
+
   return (
     <View style={styles.screen}>
       <FlatList
@@ -227,7 +230,7 @@ export default function HistoryScreen() {
               </View>
               <View style={styles.sheetStat}>
                 <Text style={styles.sheetStatLabel}>{t("Tubo")}</Text>
-                <Text style={[styles.sheetStatValue, { color: colors.primary }]}>
+                <Text style={[styles.sheetStatValue, { color: colors.success }]}>
                   {peso(openDay.profit)}
                 </Text>
               </View>
@@ -336,7 +339,7 @@ const createStyles = (colors: Colors) =>
       marginTop: 8,
     },
     barLabelActive: {
-      color: colors.primary,
+      color: colors.success,
       fontWeight: "700",
     },
     hero: {

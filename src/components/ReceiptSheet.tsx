@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import BottomSheet from "@/components/BottomSheet";
 import { peso, radius, type Colors } from "@/constants/theme";
 import type { Sale } from "@/data/sample";
-import { PAYMENT_KEYS, useT } from "@/i18n";
+import { PAYMENT_KEYS, useT, type TKey } from "@/i18n";
 import { printReceipt, receiptDateTime, receiptLabel, shareReceipt } from "@/lib/receipt";
+import { warning } from "@/store/haptics";
 import { useStore } from "@/store/StoreProvider";
 import { useTheme } from "@/store/useTheme";
 
@@ -20,13 +21,47 @@ type Props = {
   onPrimary?: () => void;
 };
 
-/** A sale's full receipt with Print and Share buttons. */
-export default function ReceiptSheet({ sale, onClose, justSold, primaryLabel, onPrimary }: Props) {
+const VOID_REASONS: TKey[] = ["Mali ang item o presyo", "Ibinalik ng customer", "Nadoble ang benta"];
+
+/** A sale's full receipt with Print and Share buttons, and Void for mistakes. */
+export default function ReceiptSheet({ sale: opened, onClose, justSold, primaryLabel, onPrimary }: Props) {
   const t = useT();
   const { colors, pay } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { settings } = useStore();
+  const { settings, sales, can, voidSale } = useStore();
   const [busy, setBusy] = useState<"print" | "share" | null>(null);
+  const [voiding, setVoiding] = useState(false);
+  const [reason, setReason] = useState("");
+  const [ownerPin, setOwnerPin] = useState("");
+  // Read the live copy so the sheet updates right after a void.
+  const sale = opened ? (sales.find((s) => s.id === opened.id) ?? opened) : null;
+  // Staff need the owner's PIN to void; the owner (or a store without a PIN) does not.
+  const needsPin = !can("voidSale");
+
+  function close() {
+    setVoiding(false);
+    setReason("");
+    setOwnerPin("");
+    onClose();
+  }
+
+  function confirmVoid() {
+    if (!sale) return;
+    if (reason.trim() === "") {
+      warning();
+      Alert.alert(t("Kulang"), t("Ilagay kung bakit ivo-void."));
+      return;
+    }
+    if (needsPin && ownerPin !== settings.ownerPin) {
+      warning();
+      Alert.alert(t("Mali ang PIN"), t("PIN ng may-ari ang kailangan para mag-void."));
+      return;
+    }
+    voidSale(sale.id, reason.trim());
+    setVoiding(false);
+    setReason("");
+    setOwnerPin("");
+  }
 
   async function run(kind: "print" | "share") {
     if (!sale) return;
@@ -45,13 +80,22 @@ export default function ReceiptSheet({ sale, onClose, justSold, primaryLabel, on
     <BottomSheet
       visible={sale !== null}
       title={sale ? `${t("Resibo")} ${receiptLabel(sale)}` : ""}
-      onClose={onClose}
+      onClose={close}
     >
       {sale && (
-        <ScrollView>
-          {justSold && (
+        <ScrollView keyboardShouldPersistTaps="handled">
+          {sale.voided && (
+            <View style={styles.voidBanner}>
+              <Text style={styles.voidTitle}>{t("NA-VOID")}</Text>
+              <Text style={styles.voidText}>
+                {sale.voided.reason} · {sale.voided.by} ·{" "}
+                {new Date(sale.voided.date).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}
+              </Text>
+            </View>
+          )}
+          {justSold && !sale.voided && (
             <View style={styles.check}>
-              <Ionicons name="checkmark-circle" size={48} color={colors.primary} />
+              <Ionicons name="checkmark-circle" size={48} color={colors.success} />
             </View>
           )}
           <View style={styles.paper}>
@@ -90,7 +134,7 @@ export default function ReceiptSheet({ sale, onClose, justSold, primaryLabel, on
                 </View>
                 <View style={styles.row}>
                   <Text style={styles.strong}>{t("Sukli")}</Text>
-                  <Text style={[styles.strong, { color: colors.primary }]}>
+                  <Text style={[styles.strong, { color: colors.success }]}>
                     {peso(sale.cashReceived - sale.total)}
                   </Text>
                 </View>
@@ -108,6 +152,13 @@ export default function ReceiptSheet({ sale, onClose, justSold, primaryLabel, on
                 <Text style={styles.strong}>{sale.customerName}</Text>
               </View>
             )}
+            {sale.by && (
+              <View style={styles.row}>
+                <Text style={styles.itemMeta}>{t("Nagbenta")}</Text>
+                <Text style={styles.itemMeta}>{sale.by}</Text>
+              </View>
+            )}
+            <Text style={styles.disclaimer}>{t("Hindi ito opisyal na resibo (BIR).")}</Text>
           </View>
 
           <View style={styles.buttons}>
@@ -133,6 +184,59 @@ export default function ReceiptSheet({ sale, onClose, justSold, primaryLabel, on
               <Text style={styles.primaryText}>{primaryLabel}</Text>
             </Pressable>
           )}
+
+          {!sale.voided &&
+            (voiding ? (
+              <View style={styles.voidForm}>
+                <Text style={styles.voidFormTitle}>{t("I-void ang benta")}</Text>
+                <Text style={styles.itemMeta}>
+                  {t("Ibabalik ang mga item sa stock at hindi na ito bibilangin sa benta.")}
+                </Text>
+                <View style={styles.reasons}>
+                  {VOID_REASONS.map((r) => (
+                    <Pressable
+                      key={r}
+                      onPress={() => setReason(t(r))}
+                      style={[styles.reasonChip, reason === t(r) && styles.reasonChipActive]}
+                    >
+                      <Text style={[styles.reasonText, reason === t(r) && { color: "#fff" }]}>{t(r)}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <TextInput
+                  value={reason}
+                  onChangeText={setReason}
+                  placeholder={t("Dahilan")}
+                  placeholderTextColor={colors.muted}
+                  style={styles.input}
+                />
+                {needsPin && (
+                  <TextInput
+                    value={ownerPin}
+                    onChangeText={setOwnerPin}
+                    placeholder={t("PIN ng may-ari")}
+                    placeholderTextColor={colors.muted}
+                    keyboardType="number-pad"
+                    secureTextEntry
+                    maxLength={4}
+                    style={[styles.input, { marginTop: 8 }]}
+                  />
+                )}
+                <View style={styles.buttons}>
+                  <Pressable onPress={() => setVoiding(false)} style={styles.secondary}>
+                    <Text style={styles.secondaryText}>{t("Kanselahin")}</Text>
+                  </Pressable>
+                  <Pressable onPress={confirmVoid} style={[styles.secondary, styles.voidConfirm]}>
+                    <Text style={[styles.secondaryText, { color: "#fff" }]}>{t("I-void")}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <Pressable onPress={() => setVoiding(true)} style={styles.voidLink}>
+                <Ionicons name="close-circle-outline" size={16} color={colors.red} />
+                <Text style={styles.voidLinkText}>{t("I-void ang benta")}</Text>
+              </Pressable>
+            ))}
         </ScrollView>
       )}
     </BottomSheet>
@@ -141,6 +245,86 @@ export default function ReceiptSheet({ sale, onClose, justSold, primaryLabel, on
 
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
+    voidBanner: {
+      backgroundColor: colors.redSoft,
+      borderRadius: radius.md,
+      padding: 12,
+      marginBottom: 10,
+    },
+    voidTitle: {
+      color: colors.red,
+      fontWeight: "800",
+      letterSpacing: 1,
+    },
+    voidText: {
+      color: colors.text,
+      fontSize: 13,
+      marginTop: 2,
+    },
+    disclaimer: {
+      fontSize: 11,
+      color: colors.muted,
+      textAlign: "center",
+      marginTop: 8,
+    },
+    voidLink: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      paddingVertical: 14,
+    },
+    voidLinkText: {
+      color: colors.red,
+      fontWeight: "600",
+    },
+    voidForm: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      marginTop: 14,
+      paddingTop: 14,
+      gap: 6,
+    },
+    voidFormTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: colors.red,
+    },
+    reasons: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+      marginVertical: 6,
+    },
+    reasonChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    reasonChipActive: {
+      backgroundColor: colors.red,
+      borderColor: colors.red,
+    },
+    reasonText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    input: {
+      height: 44,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 12,
+      fontSize: 15,
+      color: colors.text,
+    },
+    voidConfirm: {
+      backgroundColor: colors.red,
+      borderColor: colors.red,
+    },
     check: {
       alignItems: "center",
       marginBottom: 8,

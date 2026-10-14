@@ -72,17 +72,18 @@ export default function TransactionsScreen() {
     for (const s of filtered) {
       const title = formatDay(new Date(s.date), settings.language);
       const last = groups[groups.length - 1];
+      const amount = s.voided ? 0 : s.total;
       if (last && last.title === title) {
         last.data.push(s);
-        last.total += s.total;
+        last.total += amount;
       } else {
-        groups.push({ title, total: s.total, data: [s] });
+        groups.push({ title, total: amount, data: [s] });
       }
     }
     return groups;
   }, [filtered, settings.language]);
 
-  const total = filtered.reduce((sum, s) => sum + s.total, 0);
+  const total = filtered.reduce((sum, s) => sum + (s.voided ? 0 : s.total), 0);
 
   const header = (
     <View style={{ gap: 12, marginBottom: 8 }}>
@@ -187,10 +188,15 @@ export default function TransactionsScreen() {
                   <View style={[styles.badge, { backgroundColor: style.bg }]}>
                     <Text style={[styles.badgeText, { color: style.fg }]}>{t(PAYMENT_KEYS[item.payment])}</Text>
                   </View>
+                  {item.voided && (
+                    <View style={[styles.badge, { backgroundColor: colors.redSoft }]}>
+                      <Text style={[styles.badgeText, { color: colors.red }]}>{t("NA-VOID")}</Text>
+                    </View>
+                  )}
                   {item.customerName && <Text style={styles.customer}>{item.customerName}</Text>}
                 </View>
               </View>
-              <Text style={styles.total}>{peso(item.total)}</Text>
+              <Text style={[styles.total, item.voided && styles.voidedTotal]}>{peso(item.total)}</Text>
             </Pressable>
           );
         }}
@@ -344,6 +350,10 @@ const createStyles = (colors: Colors) =>
       fontSize: 15,
       fontWeight: "700",
       color: colors.text,
+    },
+    voidedTotal: {
+      textDecorationLine: "line-through",
+      color: colors.muted,
     },
     empty: {
       alignItems: "center",

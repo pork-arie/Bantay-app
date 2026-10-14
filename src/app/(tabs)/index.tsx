@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import BottomSheet from "@/components/BottomSheet";
@@ -13,6 +13,8 @@ import {
   type Colors,
 } from "@/constants/theme";
 import { PAYMENT_KEYS, useT } from "@/i18n";
+import { daysSinceBackup } from "@/lib/backup";
+import { notify } from "@/lib/confirm";
 import {
   formatStock,
   formatTime,
@@ -58,11 +60,21 @@ export default function Index() {
   const t = useT();
   const { colors, pay } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { products, sales, debtors, settings, ready, updateSettings } = useStore();
+  const { products, sales, debtors, settings, ready, updateSettings, meta, activity, acceptTerms, startFresh, can } =
+    useStore();
   const [setupDismissed, setSetupDismissed] = useState(false);
   const [setup, setSetup] = useState({ storeName: "", ownerName: "", gcashNumber: "" });
+  const [agreed, setAgreed] = useState(false);
+  const [withSample, setWithSample] = useState(true);
 
-  const todaySales = sales.filter((s) => isToday(s.date));
+  // Coming back from reading the Terms/Privacy pages: show the setup again.
+  useFocusEffect(
+    useCallback(() => {
+      setSetupDismissed(false);
+    }, []),
+  );
+
+  const todaySales = sales.filter((s) => !s.voided && isToday(s.date));
   const today = summarize(todaySales);
   const lowStockItems = products
     .filter(isLowStock)
@@ -72,14 +84,24 @@ export default function Index() {
   const weekTotal = week.reduce((sum, d) => sum + d.total, 0);
   const tip = smartTip(products, sales);
 
-  const showSetup = ready && settings.ownerName === "" && !setupDismissed;
+  const showSetup = ready && (settings.ownerName === "" || !meta.acceptedTermsAt) && !setupDismissed;
+  // Only nag about backups once the store is really being used.
+  const backupDays = daysSinceBackup(meta.lastBackupAt);
+  const showBackupReminder =
+    can("backup") && activity.some((a) => a.kind === "sale") && (backupDays === null || backupDays >= 7);
 
   function finishSetup() {
+    if (!agreed) {
+      notify(t("Kailangan ang pagsang-ayon"), t("Basahin at sang-ayunan ang Terms of Use at Privacy Policy para magpatuloy."));
+      return;
+    }
     updateSettings({
-      storeName: setup.storeName.trim(),
-      ownerName: setup.ownerName.trim() || t("Kaibigan"),
-      gcashNumber: setup.gcashNumber.trim(),
+      storeName: setup.storeName.trim() || settings.storeName,
+      ownerName: setup.ownerName.trim() || settings.ownerName || t("Kaibigan"),
+      gcashNumber: setup.gcashNumber.trim() || settings.gcashNumber,
     });
+    acceptTerms();
+    if (!withSample) startFresh();
   }
 
   return (
@@ -112,6 +134,24 @@ export default function Index() {
         </View>
         <Text style={styles.tipText}>{t(tip.key, tip.vars)}</Text>
       </View>
+
+      {showBackupReminder && (
+        <Pressable
+          onPress={() => router.navigate("/settings")}
+          style={({ pressed }) => [styles.backupCard, pressed && styles.pressed]}
+        >
+          <Ionicons name="cloud-upload-outline" size={20} color={colors.orange} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.backupTitle}>
+              {backupDays === null
+                ? t("Hindi ka pa nagba-backup")
+                : t("{days} araw na mula sa huling backup", { days: backupDays })}
+            </Text>
+            <Text style={styles.backupText}>{t("I-backup para hindi mawala ang data kung masira o mawala ang phone.")}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+        </Pressable>
+      )}
 
       {/* Stat cards */}
       <View style={styles.grid}>
@@ -291,40 +331,91 @@ export default function Index() {
         title={t("Maligayang pagdating! 👋")}
         onClose={() => setSetupDismissed(true)}
       >
-        <Text style={styles.setupIntro}>
-          {t("Ilagay ang ilang detalye ng tindahan. Mababago mo ito sa Settings.")}
-        </Text>
-        <Text style={styles.label}>{t("Pangalan ng tindahan")}</Text>
-        <TextInput
-          value={setup.storeName}
-          onChangeText={(storeName) => setSetup({ ...setup, storeName })}
-          placeholder="hal. Tindahan ni Aling Rosa"
-          placeholderTextColor={colors.muted}
-          style={styles.input}
-        />
-        <Text style={styles.label}>{t("Pangalan mo")}</Text>
-        <TextInput
-          value={setup.ownerName}
-          onChangeText={(ownerName) => setSetup({ ...setup, ownerName })}
-          placeholder="hal. Rosa"
-          placeholderTextColor={colors.muted}
-          style={styles.input}
-        />
-        <Text style={styles.label}>{t("GCash number (optional)")}</Text>
-        <TextInput
-          value={setup.gcashNumber}
-          onChangeText={(gcashNumber) => setSetup({ ...setup, gcashNumber })}
-          placeholder="09XX XXX XXXX"
-          placeholderTextColor={colors.muted}
-          keyboardType="phone-pad"
-          style={styles.input}
-        />
-        <Pressable
-          onPress={finishSetup}
-          style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
-        >
-          <Text style={styles.primaryBtnText}>{t("Simulan")}</Text>
-        </Pressable>
+        <ScrollView keyboardShouldPersistTaps="handled">
+          <Text style={styles.setupIntro}>
+            {t("Ilagay ang ilang detalye ng tindahan. Mababago mo ito sa Settings.")}
+          </Text>
+          <Text style={styles.label}>{t("Pangalan ng tindahan")}</Text>
+          <TextInput
+            value={setup.storeName}
+            onChangeText={(storeName) => setSetup({ ...setup, storeName })}
+            placeholder="hal. Tindahan ni Aling Rosa"
+            placeholderTextColor={colors.muted}
+            style={styles.input}
+          />
+          <Text style={styles.label}>{t("Pangalan mo")}</Text>
+          <TextInput
+            value={setup.ownerName}
+            onChangeText={(ownerName) => setSetup({ ...setup, ownerName })}
+            placeholder="hal. Rosa"
+            placeholderTextColor={colors.muted}
+            style={styles.input}
+          />
+          <Text style={styles.label}>{t("GCash number (optional)")}</Text>
+          <TextInput
+            value={setup.gcashNumber}
+            onChangeText={(gcashNumber) => setSetup({ ...setup, gcashNumber })}
+            placeholder="09XX XXX XXXX"
+            placeholderTextColor={colors.muted}
+            keyboardType="phone-pad"
+            style={styles.input}
+          />
+
+          <Text style={styles.label}>{t("Paano magsisimula?")}</Text>
+          <View style={styles.choiceRow}>
+            {[
+              { key: true, label: t("May sample data"), hint: t("Para masubukan muna") },
+              { key: false, label: t("Walang laman"), hint: t("Para sa totoong tindahan") },
+            ].map((c) => (
+              <Pressable
+                key={String(c.key)}
+                onPress={() => setWithSample(c.key)}
+                style={[styles.choice, withSample === c.key && styles.choiceActive]}
+              >
+                <Text style={[styles.choiceTitle, withSample === c.key && { color: colors.primary }]}>{c.label}</Text>
+                <Text style={styles.choiceHint}>{c.hint}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Pressable onPress={() => setAgreed(!agreed)} style={styles.agreeRow}>
+            <Ionicons
+              name={agreed ? "checkbox" : "square-outline"}
+              size={22}
+              color={agreed ? colors.primary : colors.muted}
+            />
+            <Text style={styles.agreeText}>
+              {t("Nabasa ko at sumasang-ayon ako sa")}{" "}
+              <Text
+                style={styles.link}
+                onPress={() => {
+                  setSetupDismissed(true);
+                  router.navigate({ pathname: "/legal", params: { doc: "terms" } });
+                }}
+              >
+                Terms of Use
+              </Text>{" "}
+              {t("at")}{" "}
+              <Text
+                style={styles.link}
+                onPress={() => {
+                  setSetupDismissed(true);
+                  router.navigate({ pathname: "/legal", params: { doc: "privacy" } });
+                }}
+              >
+                Privacy Policy
+              </Text>
+              .
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={finishSetup}
+            style={({ pressed }) => [styles.primaryBtn, !agreed && { opacity: 0.5 }, pressed && styles.pressed]}
+          >
+            <Text style={styles.primaryBtnText}>{t("Simulan")}</Text>
+          </Pressable>
+        </ScrollView>
       </BottomSheet>
     </ScrollView>
   );
@@ -553,6 +644,66 @@ const createStyles = (colors: Colors) =>
       fontSize: 12,
       fontWeight: "600",
       marginTop: 2,
+    },
+    backupCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      backgroundColor: colors.orangeSoft,
+      borderRadius: radius.md,
+      padding: 14,
+    },
+    backupTitle: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: colors.text,
+    },
+    backupText: {
+      fontSize: 12,
+      color: colors.muted,
+      marginTop: 2,
+    },
+    choiceRow: {
+      flexDirection: "row",
+      gap: 10,
+    },
+    choice: {
+      flex: 1,
+      borderRadius: radius.md,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      padding: 12,
+    },
+    choiceActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primarySoft,
+    },
+    choiceTitle: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: colors.text,
+    },
+    choiceHint: {
+      fontSize: 12,
+      color: colors.muted,
+      marginTop: 2,
+    },
+    agreeRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 10,
+      marginTop: 18,
+    },
+    agreeText: {
+      flex: 1,
+      fontSize: 13,
+      lineHeight: 19,
+      color: colors.text,
+    },
+    link: {
+      color: colors.primary,
+      fontWeight: "700",
+      textDecorationLine: "underline",
     },
     setupIntro: {
       fontSize: 14,

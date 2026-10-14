@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import BottomSheet from "@/components/BottomSheet";
 import ForecastCard from "@/components/ForecastCard";
+import OwnerOnly from "@/components/OwnerOnly";
 import { peso, radius, shadow, type Colors } from "@/constants/theme";
 import type { PaymentMethod, Period } from "@/data/sample";
 import { PAYMENT_KEYS, useT, type TKey } from "@/i18n";
@@ -33,7 +34,7 @@ export default function Reports() {
   const router = useRouter();
   const { colors, pay } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { sales, debtors, settings, closings, closeDay } = useStore();
+  const { sales, debtors, settings, closings, closeDay, can } = useStore();
   const [period, setPeriod] = useState<Period>("week");
   const [closingOpen, setClosingOpen] = useState(false);
   const [openingCash, setOpeningCash] = useState("");
@@ -89,6 +90,8 @@ export default function Reports() {
     setOpeningCash("");
   }
 
+  if (!can("viewProfit")) return <OwnerOnly />;
+
   return (
     <ScrollView
       style={styles.screen}
@@ -136,7 +139,7 @@ export default function Reports() {
             <Text style={styles.heroProfit}>{peso(report.profit)}</Text>
           </View>
           <View style={styles.marginPill}>
-            <Ionicons name="trending-up" size={14} color={colors.primary} />
+            <Ionicons name="trending-up" size={14} color={colors.success} />
             <Text style={styles.marginText}>{t("{pct}% margin", { pct: margin.toFixed(1) })}</Text>
           </View>
         </View>
@@ -312,9 +315,9 @@ export default function Reports() {
             style={styles.input}
           />
 
-          <View style={[styles.closeBox, { backgroundColor: colors.primarySoft }]}>
+          <View style={[styles.closeBox, { backgroundColor: colors.successSoft }]}>
             <Text style={styles.closeLabel}>{t("Dapat nasa kaha")}</Text>
-            <Text style={[styles.closeBig, { color: colors.primary }]}>{peso(expectedCash)}</Text>
+            <Text style={[styles.closeBig, { color: colors.success }]}>{peso(expectedCash)}</Text>
           </View>
 
           <Text style={styles.label}>{t("Binilang na pera sa kaha")}</Text>
@@ -334,7 +337,7 @@ export default function Reports() {
                 {
                   backgroundColor:
                     Math.abs(difference) < 0.01
-                      ? colors.primarySoft
+                      ? colors.successSoft
                       : difference < 0
                         ? colors.redSoft
                         : colors.orangeSoft,
@@ -479,13 +482,13 @@ const createStyles = (colors: Colors) =>
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.successSoft,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 14,
   },
   marginText: {
-    color: colors.primary,
+    color: colors.success,
     fontWeight: "700",
     fontSize: 12,
   },

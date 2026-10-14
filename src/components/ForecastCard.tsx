@@ -94,7 +94,7 @@ export default function ForecastCard() {
                 <Ionicons
                   name={f.trendPct >= 0 ? "trending-up" : "trending-down"}
                   size={16}
-                  color={f.trendPct >= 0 ? colors.primary : colors.red}
+                  color={f.trendPct >= 0 ? colors.success : colors.red}
                 />
                 <Text style={styles.insightText}>
                   {f.trendPct >= 0
@@ -197,7 +197,7 @@ export default function ForecastCard() {
             </View>
             <View style={[styles.resultRow, styles.resultTotal]}>
               <Text style={styles.resultBig}>{t("Kikitain mo")}</Text>
-              <Text style={[styles.resultBig, { color: colors.primary }]}>{peso(profit)}</Text>
+              <Text style={[styles.resultBig, { color: colors.success }]}>{peso(profit)}</Text>
             </View>
             {revenue > 0 && (
               <Text style={styles.sub}>
@@ -276,7 +276,7 @@ const createStyles = (colors: Colors) =>
     boxProfit: {
       fontSize: 12,
       fontWeight: "600",
-      color: colors.primary,
+      color: colors.success,
       marginTop: 2,
     },
     monthBox: {

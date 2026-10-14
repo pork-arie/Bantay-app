@@ -3,9 +3,9 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
 import { peso } from '@/constants/theme';
-import type { Sale, Settings } from '@/data/sample';
+import type { Debtor, Sale, Settings } from '@/data/sample';
 import { PAYMENT_KEYS, type TKey, type TVars } from '@/i18n';
-import { formatDate } from '@/store/selectors';
+import { balanceOf, formatDate } from '@/store/selectors';
 
 type T = (key: TKey, vars?: TVars) => string;
 
@@ -41,8 +41,10 @@ export function receiptText(sale: Sale, settings: Settings, t: T) {
       : []),
     ...(sale.gcashRef ? [`GCash Ref: ${sale.gcashRef}`] : []),
     ...(sale.customerName ? [`${t('Customer')}: ${sale.customerName}`] : []),
+    ...(sale.voided ? ['', `*** ${t('NA-VOID')}: ${sale.voided.reason} ***`] : []),
     '',
     t('Salamat po! 🙏'),
+    t('Hindi ito opisyal na resibo (BIR).'),
   ].join('\n');
 }
 
@@ -73,6 +75,7 @@ function receiptHtml(sale: Sale, settings: Settings, t: T) {
     table { width: 100%; border-collapse: collapse; }
     td { vertical-align: top; padding: 1px 0; }
     hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
+    .small { font-size: 7px; margin-top: 2px; }
   </style></head><body>
     <div class="c">
       <h1>${escape(settings.storeName || 'Bantay Store')}</h1>
@@ -95,21 +98,22 @@ function receiptHtml(sale: Sale, settings: Settings, t: T) {
       ${row(t('Bayad'), t(PAYMENT_KEYS[sale.payment]))}
       ${extra}
     </table>
+    ${sale.voided ? `<div class="c b"><b>*** ${escape(t('NA-VOID'))}: ${escape(sale.voided.reason)} ***</b></div>` : ''}
     <hr>
     <div class="c">${escape(t('Salamat po! 🙏'))}</div>
+    <div class="c small">${escape(t('Hindi ito opisyal na resibo (BIR).'))}</div>
   </body></html>`;
 }
 
 function pageSize(sale: Sale) {
   // Tall enough for the header, every item (two lines each) and the totals.
-  return { width: PAPER_WIDTH, height: 190 + sale.items.length * 26 };
+  return { width: PAPER_WIDTH, height: 210 + sale.items.length * 26 + (sale.voided ? 20 : 0) };
 }
 
-/** Opens the phone's print dialog (Wi-Fi printers, or Bluetooth ones through a print-service app). */
-export async function printReceipt(sale: Sale, settings: Settings, t: T) {
-  const html = receiptHtml(sale, settings, t);
+/** Sends HTML to the print dialog; on web, prints it from a hidden frame. */
+async function printHtml(html: string, size: { width: number; height: number }) {
   if (Platform.OS === 'web') {
-    // expo-print on web prints the whole page, so print just the receipt from a hidden frame.
+    // expo-print on web prints the whole page, so print just this document.
     const frame = document.createElement('iframe');
     frame.style.display = 'none';
     frame.srcdoc = html;
@@ -120,7 +124,41 @@ export async function printReceipt(sale: Sale, settings: Settings, t: T) {
     document.body.appendChild(frame);
     return;
   }
-  await Print.printAsync({ html, ...pageSize(sale) });
+  await Print.printAsync({ html, ...size });
+}
+
+/** Paper copy of everyone's utang balance: a backup that needs no battery. */
+export async function printUtangList(debtors: Debtor[], settings: Settings, t: T) {
+  const rows = debtors
+    .map((d) => ({ d, bal: balanceOf(d) }))
+    .filter((r) => r.bal > 0)
+    .sort((a, b) => b.bal - a.bal);
+  const total = rows.reduce((sum, r) => sum + r.bal, 0);
+  const now = new Date();
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+    @page { margin: 6px; }
+    body { font-family: monospace; font-size: 9px; width: ${PAPER_WIDTH - 12}px; margin: 0; color: #000; }
+    .c { text-align: center; } .r { text-align: right; }
+    h1 { font-size: 12px; margin: 0 0 2px; }
+    table { width: 100%; border-collapse: collapse; } td { padding: 1px 0; vertical-align: top; }
+    hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
+  </style></head><body>
+    <div class="c"><h1>${escape(settings.storeName || 'Bantay Store')}</h1>
+    <div>${escape(t('Listahan ng utang'))}</div>
+    <div>${escape(`${formatDate(now.toISOString(), settings.language)} ${now.getFullYear()} · ${now.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })}`)}</div></div>
+    <hr>
+    <table>${rows
+      .map(({ d, bal }) => `<tr><td>${escape(d.name)}</td><td class="r">${escape(peso(bal))}</td></tr>`)
+      .join('')}</table>
+    <hr>
+    <table><tr><td><b>TOTAL</b></td><td class="r"><b>${escape(peso(total))}</b></td></tr></table>
+  </body></html>`;
+  await printHtml(html, { width: PAPER_WIDTH, height: 120 + rows.length * 14 });
+}
+
+/** Opens the phone's print dialog (Wi-Fi printers, or Bluetooth ones through a print-service app). */
+export async function printReceipt(sale: Sale, settings: Settings, t: T) {
+  await printHtml(receiptHtml(sale, settings, t), pageSize(sale));
 }
 
 /** Saves the receipt as a PDF and opens the share menu; falls back to text where PDFs can't be made. */

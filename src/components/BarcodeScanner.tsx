@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { radius } from "@/constants/theme";
 import { useT } from "@/i18n";
+import { useTheme } from "@/store/useTheme";
 
 export type ScanFeedback = { text: string; tone: "ok" | "warn" };
 
@@ -34,6 +35,7 @@ export default function BarcodeScanner({
   footer,
 }: Props) {
   const t = useT();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   // Single-scan mode: the camera fires many times per second; only report once.
@@ -76,7 +78,10 @@ export default function BarcodeScanner({
             <Text style={styles.permissionText}>
               {t("Kailangan ng camera para ma-scan ang barcode.")}
             </Text>
-            <Pressable onPress={requestPermission} style={styles.permissionBtn}>
+            <Pressable
+              onPress={requestPermission}
+              style={[styles.permissionBtn, { backgroundColor: colors.primary }]}
+            >
               <Text style={styles.permissionBtnText}>{t("Payagan ang camera")}</Text>
             </Pressable>
           </View>
@@ -142,7 +147,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   permissionBtn: {
-    backgroundColor: "#16A34A",
     borderRadius: radius.md,
     paddingHorizontal: 24,
     paddingVertical: 14,

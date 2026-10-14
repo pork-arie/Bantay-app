@@ -52,9 +52,10 @@ export function totalUtang(debtors: Debtor[]) {
 
 export const PERIOD_DAYS: Record<Period, number> = { today: 1, week: 7, month: 28 };
 
+/** Sales in the last N days, leaving out voided ones. */
 export function salesInLastDays(sales: Sale[], days: number) {
   const from = startOfDay().getTime() - (days - 1) * DAY_MS;
-  return sales.filter((s) => new Date(s.date).getTime() >= from);
+  return sales.filter((s) => !s.voided && new Date(s.date).getTime() >= from);
 }
 
 export function summarize(sales: Sale[]) {
@@ -64,6 +65,8 @@ export function summarize(sales: Sale[]) {
   let cost = 0;
 
   for (const s of sales) {
+    // Voided sales stay in the records but don't count as sales.
+    if (s.voided) continue;
     total += s.total;
     byPayment[s.payment] += s.total;
     for (const it of s.items) {
@@ -234,7 +237,7 @@ export function forecast(sales: Sale[]) {
   const from = today.getTime() - 28 * DAY_MS;
   const past = sales.filter((s) => {
     const t = new Date(s.date).getTime();
-    return t >= from && t < today.getTime();
+    return !s.voided && t >= from && t < today.getTime();
   });
   const past28 = summarize(past);
   const margin = past28.total > 0 ? past28.profit / past28.total : 0;
