@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import BottomSheet from "@/components/BottomSheet";
-import { colors, paymentStyles, peso, radius, shadow } from "@/constants/theme";
-import { PAYMENT_LABELS, type PaymentMethod, type Period } from "@/data/sample";
+import { peso, radius, shadow, type Colors } from "@/constants/theme";
+import type { PaymentMethod, Period } from "@/data/sample";
+import { PAYMENT_KEYS, useT, type TKey } from "@/i18n";
 import { success } from "@/store/haptics";
 import {
   PERIOD_DAYS,
@@ -16,8 +17,9 @@ import {
   trend,
 } from "@/store/selectors";
 import { useStore } from "@/store/StoreProvider";
+import { useTheme } from "@/store/useTheme";
 
-const PERIODS: { key: Period; label: string; title: string }[] = [
+const PERIODS: { key: Period; label: TKey; title: TKey }[] = [
   { key: "today", label: "Ngayon", title: "ngayong araw" },
   { key: "week", label: "Linggo", title: "nitong 7 araw" },
   { key: "month", label: "Buwan", title: "nitong 4 na linggo" },
@@ -25,6 +27,9 @@ const PERIODS: { key: Period; label: string; title: string }[] = [
 const METHODS: PaymentMethod[] = ["cash", "gcash", "utang"];
 
 export default function Reports() {
+  const t = useT();
+  const { colors, pay } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { sales, debtors, settings, closings, closeDay } = useStore();
   const [period, setPeriod] = useState<Period>("week");
   const [closingOpen, setClosingOpen] = useState(false);
@@ -32,10 +37,10 @@ export default function Reports() {
   const [counted, setCounted] = useState("");
 
   const report = summarize(salesInLastDays(sales, PERIOD_DAYS[period]));
-  const periodTitle = PERIODS.find((p) => p.key === period)!.title;
+  const periodTitle = t(PERIODS.find((p) => p.key === period)!.title);
   const margin = report.total > 0 ? (report.profit / report.total) * 100 : 0;
   const average = report.transactions > 0 ? report.total / report.transactions : 0;
-  const chart = trend(sales, period);
+  const chart = trend(sales, period, settings.language);
   const maxTrend = Math.max(...chart.map((t) => t.total), 1);
   const best = chart.reduce((a, b) => (b.total > a.total ? b : a));
   const topProducts = report.topProducts.slice(0, 5);
@@ -61,13 +66,13 @@ export default function Reports() {
   function shareReport() {
     const lines = [
       `📊 ${settings.storeName || "Bantay"} Report — ${periodTitle}`,
-      `Benta: ${peso(report.total)}`,
-      `Tubo: ${peso(report.profit)} (${margin.toFixed(1)}%)`,
-      `Transaksyon: ${report.transactions}`,
-      ...METHODS.map((m) => `${PAYMENT_LABELS[m]}: ${peso(report.byPayment[m])}`),
+      `${t("Benta")}: ${peso(report.total)}`,
+      `${t("Tubo")}: ${peso(report.profit)} (${margin.toFixed(1)}%)`,
+      `${t("Transaksyon")}: ${report.transactions}`,
+      ...METHODS.map((m) => `${t(PAYMENT_KEYS[m])}: ${peso(report.byPayment[m])}`),
       "",
-      "Top products:",
-      ...topProducts.slice(0, 3).map((t, i) => `${i + 1}. ${t.name} — ${t.qty} pcs`),
+      `${t("Pinakamabenta")}:`,
+      ...topProducts.slice(0, 3).map((row, i) => `${i + 1}. ${row.name} — ${row.qty} pcs`),
     ];
     Share.share({ message: lines.join("\n") });
   }
@@ -89,13 +94,13 @@ export default function Reports() {
     >
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Reports</Text>
-          <Text style={styles.subtitle}>Takbo ng tindahan {periodTitle}</Text>
+          <Text style={styles.title}>{t("Reports")}</Text>
+          <Text style={styles.subtitle}>{t("Takbo ng tindahan {period}", { period: periodTitle })}</Text>
         </View>
         <Pressable
           onPress={shareReport}
           style={({ pressed }) => [styles.shareBtn, pressed && styles.pressed]}
-          accessibilityLabel="I-share ang report"
+          accessibilityLabel={t("I-share ang report")}
         >
           <Ionicons name="share-outline" size={20} color={colors.text} />
         </Pressable>
@@ -111,7 +116,7 @@ export default function Reports() {
               onPress={() => setPeriod(p.key)}
               style={[styles.segmentBtn, active && styles.segmentActive]}
             >
-              <Text style={[styles.segmentText, active && { color: "#fff" }]}>{p.label}</Text>
+              <Text style={[styles.segmentText, active && { color: "#fff" }]}>{t(p.label)}</Text>
             </Pressable>
           );
         })}
@@ -119,17 +124,17 @@ export default function Reports() {
 
       {/* Hero: sales + profit */}
       <View style={styles.hero}>
-        <Text style={styles.heroLabel}>Kabuuang benta</Text>
+        <Text style={styles.heroLabel}>{t("Kabuuang benta")}</Text>
         <Text style={styles.heroValue}>{peso(report.total)}</Text>
         <View style={styles.heroDivider} />
         <View style={styles.heroRow}>
           <View>
-            <Text style={styles.heroLabel}>Tubo (profit)</Text>
+            <Text style={styles.heroLabel}>{t("Tubo (profit)")}</Text>
             <Text style={styles.heroProfit}>{peso(report.profit)}</Text>
           </View>
           <View style={styles.marginPill}>
             <Ionicons name="trending-up" size={14} color={colors.primary} />
-            <Text style={styles.marginText}>{margin.toFixed(1)}% margin</Text>
+            <Text style={styles.marginText}>{t("{pct}% margin", { pct: margin.toFixed(1) })}</Text>
           </View>
         </View>
       </View>
@@ -143,11 +148,13 @@ export default function Reports() {
           <Ionicons name="lock-closed-outline" size={20} color={colors.primary} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.closingTitle}>Pagsara ng araw</Text>
+          <Text style={styles.closingTitle}>{t("Pagsara ng araw")}</Text>
           <Text style={styles.closingSub}>
             {lastClosing
-              ? `Huling sara: ${formatDate(lastClosing.date)} ${formatTime(lastClosing.date)}`
-              : "Bilangin ang kaha at i-check ang GCash"}
+              ? t("Huling sara: {date}", {
+                  date: `${formatDate(lastClosing.date, settings.language)} ${formatTime(lastClosing.date)}`,
+                })
+              : t("Bilangin ang kaha at i-check ang GCash")}
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.muted} />
@@ -158,43 +165,43 @@ export default function Reports() {
         <View style={styles.kpi}>
           <Ionicons name="receipt-outline" size={18} color={colors.blue} />
           <Text style={styles.kpiValue}>{report.transactions}</Text>
-          <Text style={styles.kpiLabel}>Transaksyon</Text>
+          <Text style={styles.kpiLabel}>{t("Transaksyon")}</Text>
         </View>
         <View style={styles.kpi}>
           <Ionicons name="basket-outline" size={18} color={colors.orange} />
           <Text style={styles.kpiValue}>{peso(average)}</Text>
-          <Text style={styles.kpiLabel}>Average kada benta</Text>
+          <Text style={styles.kpiLabel}>{t("Average kada benta")}</Text>
         </View>
       </View>
 
       {/* Trend */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Takbo ng benta</Text>
+          <Text style={styles.sectionTitle}>{t("Takbo ng benta")}</Text>
           {best.total > 0 && (
-            <Text style={styles.sectionSub}>Pinakamalakas: {best.label}</Text>
+            <Text style={styles.sectionSub}>{t("Pinakamalakas: {label}", { label: best.label })}</Text>
           )}
         </View>
         <View style={styles.chart}>
-          {chart.map((t, i) => {
-            const isBest = t === best && t.total > 0;
+          {chart.map((bucket, i) => {
+            const isBest = bucket === best && bucket.total > 0;
             return (
               <View key={i} style={styles.barColumn}>
                 <Text style={[styles.barValue, isBest && { color: colors.primary }]}>
-                  {t.total >= 1000 ? `${(t.total / 1000).toFixed(1)}k` : Math.round(t.total)}
+                  {bucket.total >= 1000 ? `${(bucket.total / 1000).toFixed(1)}k` : Math.round(bucket.total)}
                 </Text>
                 <View style={styles.barTrack}>
                   <View
                     style={[
                       styles.bar,
                       {
-                        height: `${(t.total / maxTrend) * 100}%`,
+                        height: `${(bucket.total / maxTrend) * 100}%`,
                         backgroundColor: isBest ? colors.primary : colors.primarySoft,
                       },
                     ]}
                   />
                 </View>
-                <Text style={styles.barLabel}>{t.label}</Text>
+                <Text style={styles.barLabel}>{bucket.label}</Text>
               </View>
             );
           })}
@@ -203,13 +210,13 @@ export default function Reports() {
 
       {/* Payment split */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { marginBottom: 14 }]}>Paraan ng bayad</Text>
+        <Text style={[styles.sectionTitle, { marginBottom: 14 }]}>{t("Paraan ng bayad")}</Text>
         <View style={styles.splitBar}>
           {METHODS.map((m) =>
             report.byPayment[m] > 0 ? (
               <View
                 key={m}
-                style={{ flex: report.byPayment[m], backgroundColor: paymentStyles[m].fg }}
+                style={{ flex: report.byPayment[m], backgroundColor: pay[m].fg }}
               />
             ) : null,
           )}
@@ -217,10 +224,10 @@ export default function Reports() {
         <View style={styles.legendRow}>
           {METHODS.map((m) => (
             <View key={m} style={styles.legend}>
-              <View style={[styles.dot, { backgroundColor: paymentStyles[m].fg }]} />
+              <View style={[styles.dot, { backgroundColor: pay[m].fg }]} />
               <View>
                 <Text style={styles.legendLabel}>
-                  {PAYMENT_LABELS[m]} ·{" "}
+                  {t(PAYMENT_KEYS[m])} ·{" "}
                   {report.total > 0 ? Math.round((report.byPayment[m] / report.total) * 100) : 0}%
                 </Text>
                 <Text style={styles.legendValue}>{peso(report.byPayment[m])}</Text>
@@ -232,28 +239,28 @@ export default function Reports() {
 
       {/* Top products */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { marginBottom: 6 }]}>Pinakamabenta</Text>
+        <Text style={[styles.sectionTitle, { marginBottom: 6 }]}>{t("Pinakamabenta")}</Text>
         {topProducts.length === 0 && (
-          <Text style={styles.sectionSub}>Wala pang benta sa panahong ito.</Text>
+          <Text style={styles.sectionSub}>{t("Wala pang benta sa panahong ito.")}</Text>
         )}
-        {topProducts.map((t, i) => (
-          <View key={t.productId} style={styles.topRow}>
+        {topProducts.map((row, i) => (
+          <View key={row.productId} style={styles.topRow}>
             <View style={[styles.rank, i === 0 && { backgroundColor: colors.primary }]}>
               <Text style={[styles.rankText, i === 0 && { color: "#fff" }]}>{i + 1}</Text>
             </View>
             <View style={{ flex: 1 }}>
               <View style={styles.topHeader}>
                 <Text style={styles.topName} numberOfLines={1}>
-                  {t.name}
+                  {row.name}
                 </Text>
-                <Text style={styles.topRevenue}>{peso(t.revenue)}</Text>
+                <Text style={styles.topRevenue}>{peso(row.revenue)}</Text>
               </View>
               <View style={styles.topTrack}>
                 <View
-                  style={[styles.topFill, { width: `${(t.revenue / maxRevenue) * 100}%` }]}
+                  style={[styles.topFill, { width: `${(row.revenue / maxRevenue) * 100}%` }]}
                 />
               </View>
-              <Text style={styles.topQty}>{t.qty} pcs nabenta</Text>
+              <Text style={styles.topQty}>{t("{qty} pcs nabenta", { qty: row.qty })}</Text>
             </View>
           </View>
         ))}
@@ -262,20 +269,20 @@ export default function Reports() {
       {/* Daily closing sheet */}
       <BottomSheet
         visible={closingOpen}
-        title="Pagsara ng araw"
+        title={t("Pagsara ng araw")}
         onClose={() => setClosingOpen(false)}
       >
         <ScrollView keyboardShouldPersistTaps="handled">
           <View style={styles.closeRow}>
-            <Text style={styles.closeLabel}>Cash na benta</Text>
+            <Text style={styles.closeLabel}>{t("Cash na benta")}</Text>
             <Text style={styles.closeValue}>{peso(today.byPayment.cash)}</Text>
           </View>
           <View style={styles.closeRow}>
-            <Text style={styles.closeLabel}>Bayad-utang (cash)</Text>
+            <Text style={styles.closeLabel}>{t("Bayad-utang (cash)")}</Text>
             <Text style={styles.closeValue}>{peso(utangPaidCash)}</Text>
           </View>
 
-          <Text style={styles.label}>Panimulang pera sa kaha (optional)</Text>
+          <Text style={styles.label}>{t("Panimulang pera sa kaha (optional)")}</Text>
           <TextInput
             value={openingCash}
             onChangeText={setOpeningCash}
@@ -286,11 +293,11 @@ export default function Reports() {
           />
 
           <View style={[styles.closeBox, { backgroundColor: colors.primarySoft }]}>
-            <Text style={styles.closeLabel}>Dapat nasa kaha</Text>
+            <Text style={styles.closeLabel}>{t("Dapat nasa kaha")}</Text>
             <Text style={[styles.closeBig, { color: colors.primary }]}>{peso(expectedCash)}</Text>
           </View>
 
-          <Text style={styles.label}>Binilang na pera sa kaha</Text>
+          <Text style={styles.label}>{t("Binilang na pera sa kaha")}</Text>
           <TextInput
             value={counted}
             onChangeText={setCounted}
@@ -316,10 +323,10 @@ export default function Reports() {
             >
               <Text style={styles.closeLabel}>
                 {Math.abs(difference) < 0.01
-                  ? "Tama ang bilang! 🎉"
+                  ? t("Tama ang bilang! 🎉")
                   : difference < 0
-                    ? "Kulang ang kaha"
-                    : "Sobra ang kaha"}
+                    ? t("Kulang ang kaha")
+                    : t("Sobra ang kaha")}
               </Text>
               {Math.abs(difference) >= 0.01 && (
                 <Text
@@ -335,9 +342,9 @@ export default function Reports() {
           )}
 
           <View style={[styles.closeBox, { backgroundColor: colors.gcashSoft }]}>
-            <Text style={styles.closeLabel}>Dapat pumasok sa GCash ngayon</Text>
+            <Text style={styles.closeLabel}>{t("Dapat pumasok sa GCash ngayon")}</Text>
             <Text style={[styles.closeBig, { color: colors.gcash }]}>{peso(expectedGcash)}</Text>
-            <Text style={styles.closeHint}>I-compare sa history ng GCash app.</Text>
+            <Text style={styles.closeHint}>{t("I-compare sa history ng GCash app.")}</Text>
           </View>
 
           <Pressable
@@ -349,7 +356,7 @@ export default function Reports() {
               pressed && styles.pressed,
             ]}
           >
-            <Text style={styles.primaryBtnText}>I-save ang pagsara</Text>
+            <Text style={styles.primaryBtnText}>{t("I-save ang pagsara")}</Text>
           </Pressable>
         </ScrollView>
       </BottomSheet>
@@ -357,7 +364,8 @@ export default function Reports() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,

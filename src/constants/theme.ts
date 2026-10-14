@@ -1,4 +1,6 @@
-export const colors = {
+export const BRAND = 'Bantay';
+
+export const lightColors = {
   background: '#F4F6F8',
   surface: '#FFFFFF',
   text: '#111827',
@@ -12,17 +14,41 @@ export const colors = {
   orangeSoft: '#FFEDD5',
   red: '#DC2626',
   redSoft: '#FEE2E2',
+  /** Dark accent surfaces: hero cards, selected chips. */
   dark: '#111827',
   gcash: '#007DFE',
   gcashSoft: '#E0EEFF',
 };
 
+export type Colors = typeof lightColors;
+
+export const darkColors: Colors = {
+  background: '#0B0F14',
+  surface: '#161C24',
+  text: '#F3F4F6',
+  muted: '#9CA3AF',
+  border: '#2A3340',
+  primary: '#22C55E',
+  primarySoft: '#123322',
+  blue: '#60A5FA',
+  blueSoft: '#172A4A',
+  orange: '#FB923C',
+  orangeSoft: '#3A2414',
+  red: '#F87171',
+  redSoft: '#3B1818',
+  dark: '#26303D',
+  gcash: '#3B9BFF',
+  gcashSoft: '#10294A',
+};
+
 /** Text, background and icon for each payment method. */
-export const paymentStyles = {
-  cash: { fg: colors.primary, bg: colors.primarySoft, icon: 'cash-outline' },
-  gcash: { fg: colors.gcash, bg: colors.gcashSoft, icon: 'phone-portrait-outline' },
-  utang: { fg: colors.orange, bg: colors.orangeSoft, icon: 'time-outline' },
-} as const;
+export function paymentStyles(colors: Colors) {
+  return {
+    cash: { fg: colors.primary, bg: colors.primarySoft, icon: 'cash-outline' },
+    gcash: { fg: colors.gcash, bg: colors.gcashSoft, icon: 'phone-portrait-outline' },
+    utang: { fg: colors.orange, bg: colors.orangeSoft, icon: 'time-outline' },
+  } as const;
+}
 
 export const radius = {
   sm: 10,

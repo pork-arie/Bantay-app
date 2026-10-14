@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "stok",
+    "name": "Bantay",
     "slug": "stok",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -33,7 +33,15 @@
           "imageWidth": 76
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Bantay uses the camera to scan product barcodes.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

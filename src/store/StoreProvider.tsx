@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import {
   DEFAULT_SETTINGS,
   SEED_PRODUCTS,
+  saleItem,
   seedDebtors,
   seedSales,
   type DayClosing,
@@ -12,10 +13,12 @@ import {
   type Product,
   type Sale,
   type Settings,
+  type SellUnit,
 } from '@/data/sample';
 import { loadItem, saveItem } from './storage';
 
-const STORAGE_KEY = 'bantay-state-v1';
+// v2 added tingi/pack units; older saved data is not migrated.
+const STORAGE_KEY = 'bantay-state-v2';
 
 type State = {
   products: Product[];
@@ -26,7 +29,7 @@ type State = {
 };
 
 export type CheckoutInput = {
-  cart: { productId: string; qty: number }[];
+  cart: { productId: string; unit: SellUnit; qty: number }[];
   payment: PaymentMethod;
   customerId?: string;
   newCustomerName?: string;
@@ -39,6 +42,7 @@ type Store = State & {
   checkout: (input: CheckoutInput) => Sale;
   restock: (productId: string, qty: number) => void;
   addProduct: (product: Omit<Product, 'id'>) => void;
+  updateProduct: (productId: string, patch: Partial<Omit<Product, 'id'>>) => void;
   addDebtor: (input: { name: string; phone?: string; limit: number; amount?: number }) => void;
   addLedgerEntry: (debtorId: string, entry: Omit<LedgerEntry, 'id' | 'date'>) => void;
   updateDebtorLimit: (debtorId: string, limit: number) => void;
@@ -70,7 +74,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     loadItem(STORAGE_KEY)
       .then((raw) => {
-        if (raw) setState({ ...seedState(), ...JSON.parse(raw) });
+        if (raw) {
+          const saved = JSON.parse(raw) as Partial<State>;
+          // Spread defaults first so settings added in later versions get a value.
+          setState({
+            ...seedState(),
+            ...saved,
+            settings: { ...DEFAULT_SETTINGS, ...saved.settings },
+          });
+        }
       })
       .catch(() => {})
       .finally(() => setReady(true));
@@ -96,10 +108,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     checkout(input) {
       const current = state;
-      const items = input.cart.map(({ productId, qty }) => {
-        const p = current.products.find((x) => x.id === productId)!;
-        return { productId, name: p.name, price: p.price, cost: p.cost, qty };
-      });
+      const items = input.cart.map(({ productId, unit, qty }) =>
+        saleItem(current.products.find((x) => x.id === productId)!, unit, qty),
+      );
       const total = items.reduce((sum, it) => sum + it.price * it.qty, 0);
 
       let debtors = current.debtors;
@@ -139,8 +150,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         debtors,
         sales: [sale, ...s.sales],
         products: s.products.map((p) => {
-          const line = input.cart.find((c) => c.productId === p.id);
-          return line ? { ...p, stock: Math.max(p.stock - line.qty, 0) } : p;
+          const pieces = items
+            .filter((it) => it.productId === p.id)
+            .reduce((sum, it) => sum + it.pieces * it.qty, 0);
+          return pieces > 0 ? { ...p, stock: Math.max(p.stock - pieces, 0) } : p;
         }),
       }));
       return sale;
@@ -155,6 +168,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     addProduct(product) {
       update((s) => ({ ...s, products: [{ ...product, id: newId() }, ...s.products] }));
+    },
+
+    updateProduct(productId, patch) {
+      update((s) => ({
+        ...s,
+        products: s.products.map((p) => (p.id === productId ? { ...p, ...patch } : p)),
+      }));
     },
 
     addDebtor({ name, phone, limit, amount }) {

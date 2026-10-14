@@ -1,7 +1,14 @@
-import type { Debtor, PaymentMethod, Period, Product, Sale } from '@/data/sample';
+import type { Debtor, Language, PaymentMethod, Period, Product, Sale } from '@/data/sample';
+import type { TKey } from '@/i18n';
 
-const MONTHS = ['Ene', 'Peb', 'Mar', 'Abr', 'May', 'Hun', 'Hul', 'Ago', 'Set', 'Okt', 'Nob', 'Dis'];
-const WEEKDAYS = ['Lin', 'Lun', 'Mar', 'Miy', 'Huw', 'Biy', 'Sab'];
+const MONTHS: Record<Language, string[]> = {
+  fil: ['Ene', 'Peb', 'Mar', 'Abr', 'May', 'Hun', 'Hul', 'Ago', 'Set', 'Okt', 'Nob', 'Dis'],
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+};
+const WEEKDAYS: Record<Language, string[]> = {
+  fil: ['Lin', 'Lun', 'Mar', 'Miy', 'Huw', 'Biy', 'Sab'],
+  en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+};
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function startOfDay(date = new Date()) {
@@ -10,9 +17,9 @@ export function startOfDay(date = new Date()) {
   return d;
 }
 
-export function formatDate(iso: string) {
+export function formatDate(iso: string, lang: Language = 'fil') {
   const d = new Date(iso);
-  return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+  return `${MONTHS[lang][d.getMonth()]} ${d.getDate()}`;
 }
 
 export function formatTime(iso: string) {
@@ -25,6 +32,14 @@ export function isToday(iso: string) {
 
 export function isLowStock(p: Product) {
   return p.stock <= p.min;
+}
+
+/** "3 tali + 4 sachet" for pack products, "12 bote" otherwise. */
+export function formatStock(p: Product, pieces = p.stock) {
+  if (!p.pack || pieces < p.pack.size) return `${pieces} ${p.unit}`;
+  const packs = Math.floor(pieces / p.pack.size);
+  const rest = pieces % p.pack.size;
+  return rest > 0 ? `${packs} ${p.pack.name} + ${rest} ${p.unit}` : `${packs} ${p.pack.name}`;
 }
 
 export function balanceOf(d: Debtor) {
@@ -54,7 +69,8 @@ export function summarize(sales: Sale[]) {
     for (const it of s.items) {
       cost += it.cost * it.qty;
       const row = products.get(it.productId) ?? { productId: it.productId, name: it.name, qty: 0, revenue: 0 };
-      row.qty += it.qty;
+      // qty is reported in pieces so tingi and pack sales add up.
+      row.qty += it.qty * it.pieces;
       row.revenue += it.price * it.qty;
       products.set(it.productId, row);
     }
@@ -71,7 +87,7 @@ export function summarize(sales: Sale[]) {
 }
 
 /** Sales totals bucketed for the chart of the given period. */
-export function trend(sales: Sale[], period: Period) {
+export function trend(sales: Sale[], period: Period, lang: Language = 'fil') {
   if (period === 'today') {
     const buckets = [6, 9, 12, 15, 18].map((h) => ({
       label: h === 12 ? '12PM' : h < 12 ? `${h}AM` : `${h - 12}PM`,
@@ -92,7 +108,7 @@ export function trend(sales: Sale[], period: Period) {
   const buckets = Array.from({ length: days / size }, (_, i) => {
     const start = today - (days - 1 - i * size) * DAY_MS;
     return {
-      label: period === 'week' ? WEEKDAYS[new Date(start).getDay()] : `Wk ${i + 1}`,
+      label: period === 'week' ? WEEKDAYS[lang][new Date(start).getDay()] : `Wk ${i + 1}`,
       start,
       total: 0,
     };
@@ -107,11 +123,11 @@ export function trend(sales: Sale[], period: Period) {
 
 /** Average pieces sold per day over the last week. */
 export function dailyRate(sales: Sale[], productId: string) {
-  const qty = salesInLastDays(sales, 7)
+  const pieces = salesInLastDays(sales, 7)
     .flatMap((s) => s.items)
     .filter((it) => it.productId === productId)
-    .reduce((sum, it) => sum + it.qty, 0);
-  return qty / 7;
+    .reduce((sum, it) => sum + it.qty * it.pieces, 0);
+  return pieces / 7;
 }
 
 /** Roughly how many days the current stock will last, or null if it isn't selling. */
@@ -120,25 +136,37 @@ export function daysLeft(product: Product, sales: Sale[]) {
   return rate > 0 ? Math.floor(product.stock / rate) : null;
 }
 
+/** Low items with how much to buy, rounded up to whole packs when there is one. */
 export function restockList(products: Product[]) {
-  return products
-    .filter(isLowStock)
-    .map((p) => ({ product: p, qty: Math.max(p.min * 2 - p.stock, p.min) }));
+  return products.filter(isLowStock).map((p) => {
+    const pieces = Math.max(p.min * 2 - p.stock, p.min);
+    if (!p.pack) return { product: p, pieces, label: `${pieces} ${p.unit}` };
+    const packs = Math.ceil(pieces / p.pack.size);
+    return { product: p, pieces: packs * p.pack.size, label: `${packs} ${p.pack.name}` };
+  });
 }
 
-/** One short, useful hint for the dashboard. */
-export function smartTip(products: Product[], sales: Sale[]) {
+/** One short, useful hint for the dashboard, as a translation key plus values. */
+export function smartTip(
+  products: Product[],
+  sales: Sale[],
+): { key: TKey; vars?: Record<string, string | number> } {
   const urgent = products
     .map((p) => ({ p, days: daysLeft(p, sales) }))
     .filter((x): x is { p: Product; days: number } => x.days !== null && x.days <= 3)
     .sort((a, b) => a.days - b.days)[0];
   if (urgent) {
     return urgent.days === 0
-      ? `Mauubos na ngayon ang ${urgent.p.name}. Mag-restock na!`
-      : `Mauubos ang ${urgent.p.name} sa loob ng ~${urgent.days} araw. Mag-restock na.`;
+      ? { key: 'Mauubos na ngayon ang {name}. Mag-restock na!', vars: { name: urgent.p.name } }
+      : {
+          key: 'Mauubos ang {name} sa loob ng ~{days} araw. Mag-restock na.',
+          vars: { name: urgent.p.name, days: urgent.days },
+        };
   }
 
   const best = summarize(salesInLastDays(sales, 7)).topProducts[0];
-  if (best) return `Pinakamabenta ngayong linggo: ${best.name} (${best.qty} pcs).`;
-  return 'Simulan ang unang benta para makita ang mga tips dito.';
+  if (best) {
+    return { key: 'Pinakamabenta ngayong linggo: {name} ({qty} pcs).', vars: { name: best.name, qty: best.qty } };
+  }
+  return { key: 'Simulan ang unang benta para makita ang mga tips dito.' };
 }

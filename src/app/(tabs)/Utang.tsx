@@ -13,19 +13,13 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 import BottomSheet from "@/components/BottomSheet";
-import {
-  avatarTints,
-  colors,
-  initials,
-  paymentStyles,
-  peso,
-  radius,
-  shadow,
-} from "@/constants/theme";
+import { avatarTints, initials, peso, radius, shadow, type Colors } from "@/constants/theme";
 import type { Debtor } from "@/data/sample";
+import { useT } from "@/i18n";
 import { success, warning } from "@/store/haptics";
 import { balanceOf, formatDate, totalUtang } from "@/store/selectors";
 import { useStore } from "@/store/StoreProvider";
+import { useTheme } from "@/store/useTheme";
 
 type Filter = "Lahat" | "May utang" | "Bayad na";
 type Action = "bayad" | "utang" | null;
@@ -33,6 +27,9 @@ type Action = "bayad" | "utang" | null;
 const FILTERS: Filter[] = ["May utang", "Bayad na", "Lahat"];
 
 export default function Utang() {
+  const t = useT();
+  const { colors, pay } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { debtors, settings, addDebtor, addLedgerEntry } = useStore();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("May utang");
@@ -72,12 +69,12 @@ export default function Utang() {
     const value = parseFloat(amount);
     if (!value || value <= 0) {
       warning();
-      Alert.alert("Kulang", "Ilagay ang halaga.");
+      Alert.alert(t("Kulang"), t("Ilagay ang halaga."));
       return;
     }
     if (action === "bayad" && value > balanceOf(d)) {
       warning();
-      Alert.alert("Sobra", `Ang utang ni ${d.name} ay ${peso(balanceOf(d))} lang.`);
+      Alert.alert(t("Sobra"), t("Ang utang ni {name} ay {amount} lang.", { name: d.name, amount: peso(balanceOf(d)) }));
       return;
     }
     addLedgerEntry(d.id, {
@@ -95,17 +92,23 @@ export default function Utang() {
   function remind(d: Debtor) {
     Share.share({
       message:
-        `Hi ${d.name}! Paalala lang po sa inyong utang sa ` +
-        `${settings.storeName || "tindahan"} na ${peso(balanceOf(d))}.` +
-        (settings.gcashNumber ? ` Puwede rin pong magbayad sa GCash: ${settings.gcashNumber}.` : "") +
-        " Salamat po! 🙏",
+        t("Hi {name}! Paalala lang po sa inyong utang sa {store} na {amount}.", {
+          name: d.name,
+          store: settings.storeName || t("tindahan"),
+          amount: peso(balanceOf(d)),
+        }) +
+        (settings.gcashNumber
+          ? " " + t("Puwede rin pong magbayad sa GCash: {number}.", { number: settings.gcashNumber })
+          : "") +
+        " " +
+        t("Salamat po! 🙏"),
     });
   }
 
   function saveCustomer() {
     const name = newCustomer.name.trim();
     if (name === "") {
-      Alert.alert("Kulang", "Ilagay ang pangalan ng customer.");
+      Alert.alert(t("Kulang"), t("Ilagay ang pangalan ng customer."));
       return;
     }
     addDebtor({
@@ -136,8 +139,8 @@ export default function Utang() {
           <Text style={styles.itemName}>{item.name}</Text>
           <Text style={styles.itemMeta}>
             {last
-              ? `${last.type === "bayad" ? "Huling bayad" : "Huling utang"} · ${formatDate(last.date)}`
-              : "Walang record"}
+              ? `${last.type === "bayad" ? t("Huling bayad") : t("Huling utang")} · ${formatDate(last.date, settings.language)}`
+              : t("Walang record")}
           </Text>
         </View>
         {bal > 0 ? (
@@ -145,7 +148,7 @@ export default function Utang() {
         ) : (
           <View style={styles.paidPill}>
             <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
-            <Text style={styles.paidText}>Bayad na</Text>
+            <Text style={styles.paidText}>{t("Bayad na")}</Text>
           </View>
         )}
         <Ionicons name="chevron-forward" size={18} color={colors.border} />
@@ -164,18 +167,18 @@ export default function Utang() {
         ListHeaderComponent={
           <View style={{ gap: 16, marginBottom: 4 }}>
             <View>
-              <Text style={styles.title}>Utang</Text>
-              <Text style={styles.subtitle}>Listahan ng mga may utang</Text>
+              <Text style={styles.title}>{t("Utang")}</Text>
+              <Text style={styles.subtitle}>{t("Listahan ng mga may utang")}</Text>
             </View>
 
             <View style={styles.hero}>
               <View style={styles.heroIcon}>
                 <Ionicons name="wallet-outline" size={22} color="#fff" />
               </View>
-              <Text style={styles.heroLabel}>Kabuuang utang</Text>
+              <Text style={styles.heroLabel}>{t("Kabuuang utang")}</Text>
               <Text style={styles.heroValue}>{peso(total)}</Text>
               <Text style={styles.heroSub}>
-                {withBalance} customer ang may balanse pa
+                {t("{count} customer ang may balanse pa", { count: withBalance })}
               </Text>
             </View>
 
@@ -184,7 +187,7 @@ export default function Utang() {
               <TextInput
                 value={search}
                 onChangeText={setSearch}
-                placeholder="Hanapin ang customer..."
+                placeholder={t("Hanapin ang customer...")}
                 placeholderTextColor={colors.muted}
                 style={styles.searchInput}
               />
@@ -199,7 +202,7 @@ export default function Utang() {
                     onPress={() => setFilter(f)}
                     style={[styles.segmentBtn, active && styles.segmentActive]}
                   >
-                    <Text style={[styles.segmentText, active && { color: "#fff" }]}>{f}</Text>
+                    <Text style={[styles.segmentText, active && { color: "#fff" }]}>{t(f)}</Text>
                   </Pressable>
                 );
               })}
@@ -209,7 +212,7 @@ export default function Utang() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="happy-outline" size={40} color={colors.border} />
-            <Text style={styles.emptyText}>Walang customer dito</Text>
+            <Text style={styles.emptyText}>{t("Walang customer dito")}</Text>
           </View>
         }
       />
@@ -217,7 +220,7 @@ export default function Utang() {
       <Pressable
         onPress={() => setAdding(true)}
         style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
-        accessibilityLabel="Magdagdag ng customer"
+        accessibilityLabel={t("Magdagdag ng customer")}
       >
         <Ionicons name="person-add" size={22} color="#fff" />
       </Pressable>
@@ -237,7 +240,7 @@ export default function Utang() {
               </View>
             )}
             <View style={styles.balanceBox}>
-              <Text style={styles.balanceLabel}>Natitirang balanse</Text>
+              <Text style={styles.balanceLabel}>{t("Natitirang balanse")}</Text>
               <Text
                 style={[
                   styles.balanceValue,
@@ -260,8 +263,8 @@ export default function Utang() {
               </View>
               <Text style={styles.limitText}>
                 {balanceOf(selected) > selected.limit
-                  ? `Lampas na sa limit na ${peso(selected.limit)}`
-                  : `Limit: ${peso(selected.limit)}`}
+                  ? t("Lampas na sa limit na {limit}", { limit: peso(selected.limit) })
+                  : t("Limit: {limit}", { limit: peso(selected.limit) })}
               </Text>
             </View>
 
@@ -277,14 +280,14 @@ export default function Utang() {
                   ]}
                 >
                   <Ionicons name="cash-outline" size={18} color="#fff" />
-                  <Text style={[styles.actionText, { color: "#fff" }]}>Bayad</Text>
+                  <Text style={[styles.actionText, { color: "#fff" }]}>{t("Bayad")}</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => setAction("utang")}
                   style={[styles.actionBtn, { backgroundColor: colors.orangeSoft }]}
                 >
                   <Ionicons name="add-circle-outline" size={18} color={colors.orange} />
-                  <Text style={[styles.actionText, { color: colors.orange }]}>Utang</Text>
+                  <Text style={[styles.actionText, { color: colors.orange }]}>{t("Utang")}</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => remind(selected)}
@@ -296,13 +299,13 @@ export default function Utang() {
                   ]}
                 >
                   <Ionicons name="paper-plane-outline" size={18} color={colors.blue} />
-                  <Text style={[styles.actionText, { color: colors.blue }]}>Paalala</Text>
+                  <Text style={[styles.actionText, { color: colors.blue }]}>{t("Paalala")}</Text>
                 </Pressable>
               </View>
             ) : (
               <View style={styles.actionForm}>
                 <Text style={styles.label}>
-                  {action === "bayad" ? "Halaga ng bayad" : "Halaga ng dagdag na utang"}
+                  {action === "bayad" ? t("Halaga ng bayad") : t("Halaga ng dagdag na utang")}
                 </Text>
                 <TextInput
                   value={amount}
@@ -320,14 +323,14 @@ export default function Utang() {
                       style={styles.fullPay}
                     >
                       <Text style={styles.fullPayText}>
-                        Bayad lahat ({peso(balanceOf(selected))})
+                        {t("Bayad lahat ({amount})", { amount: peso(balanceOf(selected)) })}
                       </Text>
                     </Pressable>
-                    <Text style={styles.label}>Paano nagbayad?</Text>
+                    <Text style={styles.label}>{t("Paano nagbayad?")}</Text>
                     <View style={styles.methodRow}>
                       {(["cash", "gcash"] as const).map((m) => {
                         const active = method === m;
-                        const style = paymentStyles[m];
+                        const style = pay[m];
                         return (
                           <Pressable
                             key={m}
@@ -356,14 +359,14 @@ export default function Utang() {
                   <TextInput
                     value={note}
                     onChangeText={setNote}
-                    placeholder="Note (hal. 2 kilong bigas)"
+                    placeholder={t("Note (hal. 2 kilong bigas)")}
                     placeholderTextColor={colors.muted}
                     style={[styles.input, { marginTop: 10 }]}
                   />
                 )}
                 <View style={styles.formButtons}>
                   <Pressable onPress={() => setAction(null)} style={styles.cancelBtn}>
-                    <Text style={styles.cancelText}>Kanselahin</Text>
+                    <Text style={styles.cancelText}>{t("Kanselahin")}</Text>
                   </Pressable>
                   <Pressable
                     onPress={() => saveAction(selected)}
@@ -372,13 +375,13 @@ export default function Utang() {
                       action === "utang" && { backgroundColor: colors.orange },
                     ]}
                   >
-                    <Text style={styles.saveText}>I-save</Text>
+                    <Text style={styles.saveText}>{t("I-save")}</Text>
                   </Pressable>
                 </View>
               </View>
             )}
 
-            <Text style={styles.label}>Kasaysayan</Text>
+            <Text style={styles.label}>{t("Kasaysayan")}</Text>
             <ScrollView style={{ maxHeight: 220 }}>
               {selected.entries.map((e, i) => {
                 const isPay = e.type === "bayad";
@@ -404,10 +407,10 @@ export default function Utang() {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.entryTitle}>
-                        {isPay ? `Bayad${e.method === "gcash" ? " · GCash" : ""}` : "Utang"}
+                        {isPay ? `${t("Bayad")}${e.method === "gcash" ? " · GCash" : ""}` : t("Utang")}
                       </Text>
                       <Text style={styles.itemMeta}>
-                        {formatDate(e.date)}
+                        {formatDate(e.date, settings.language)}
                         {e.note ? ` · ${e.note}` : ""}
                       </Text>
                     </View>
@@ -424,7 +427,7 @@ export default function Utang() {
                 );
               })}
               {selected.entries.length === 0 && (
-                <Text style={styles.emptyText}>Wala pang record.</Text>
+                <Text style={styles.emptyText}>{t("Wala pang record.")}</Text>
               )}
             </ScrollView>
           </View>
@@ -432,8 +435,8 @@ export default function Utang() {
       </BottomSheet>
 
       {/* New customer */}
-      <BottomSheet visible={adding} title="Bagong customer" onClose={() => setAdding(false)}>
-        <Text style={styles.label}>Pangalan</Text>
+      <BottomSheet visible={adding} title={t("Bagong customer")} onClose={() => setAdding(false)}>
+        <Text style={styles.label}>{t("Pangalan")}</Text>
         <TextInput
           value={newCustomer.name}
           onChangeText={(name) => setNewCustomer({ ...newCustomer, name })}
@@ -441,7 +444,7 @@ export default function Utang() {
           placeholderTextColor={colors.muted}
           style={styles.input}
         />
-        <Text style={styles.label}>Cellphone (optional)</Text>
+        <Text style={styles.label}>{t("Cellphone (optional)")}</Text>
         <TextInput
           value={newCustomer.phone}
           onChangeText={(phone) => setNewCustomer({ ...newCustomer, phone })}
@@ -452,7 +455,7 @@ export default function Utang() {
         />
         <View style={styles.formRowFields}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Unang utang</Text>
+            <Text style={styles.label}>{t("Unang utang")}</Text>
             <TextInput
               value={newCustomer.amount}
               onChangeText={(amount) => setNewCustomer({ ...newCustomer, amount })}
@@ -463,7 +466,7 @@ export default function Utang() {
             />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Credit limit</Text>
+            <Text style={styles.label}>{t("Credit limit")}</Text>
             <TextInput
               value={newCustomer.limit}
               onChangeText={(limit) => setNewCustomer({ ...newCustomer, limit })}
@@ -478,14 +481,15 @@ export default function Utang() {
           onPress={saveCustomer}
           style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
         >
-          <Text style={styles.saveText}>Idagdag ang customer</Text>
+          <Text style={styles.saveText}>{t("Idagdag ang customer")}</Text>
         </Pressable>
       </BottomSheet>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
@@ -509,7 +513,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   hero: {
-    backgroundColor: colors.red,
+    // Fixed deep red so the white text stays readable in dark mode too.
+    backgroundColor: "#DC2626",
     borderRadius: radius.lg,
     padding: 20,
     ...shadow,

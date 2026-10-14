@@ -2,24 +2,46 @@
 
 export type Category = 'Lahat' | 'Inumin' | 'Snacks' | 'De Lata' | 'Gamit';
 
+/** A bigger selling unit, e.g. a "tali" of 10 sachets sold together. */
+export type Pack = {
+  name: string;
+  /** How many pieces (tingi) are in one pack. */
+  size: number;
+  price: number;
+};
+
 export type Product = {
   id: string;
   name: string;
+  /** Price of one piece (tingi). */
   price: number;
   /** What the store paid per piece; used to compute profit (tubo). */
   cost: number;
+  /** Stock is always counted in pieces. */
   stock: number;
-  /** Reorder point: the product counts as running low at or below this. */
+  /** Reorder point in pieces: the product counts as running low at or below this. */
   min: number;
+  /** Name of one piece, e.g. "sachet", "bote", "lata". */
+  unit: string;
+  pack?: Pack;
+  barcode?: string;
   category: Exclude<Category, 'Lahat'>;
 };
 
+export type SellUnit = 'tingi' | 'pack';
 export type PaymentMethod = 'cash' | 'gcash' | 'utang';
 
 export type SaleItem = {
   productId: string;
   name: string;
+  unit: SellUnit;
+  /** "sachet", "tali", ... for receipts. */
+  unitName: string;
+  /** Pieces per unit sold: 1 for tingi, pack size for packs. */
+  pieces: number;
+  /** Price per unit sold. */
   price: number;
+  /** Cost per unit sold. */
   cost: number;
   qty: number;
 };
@@ -58,11 +80,18 @@ export type Debtor = {
   entries: LedgerEntry[];
 };
 
+export type Language = 'fil' | 'en';
+export type ThemeMode = 'system' | 'light' | 'dark';
+
 export type Settings = {
   storeName: string;
   ownerName: string;
+  ownerPhone: string;
+  storeAddress: string;
   gcashNumber: string;
   defaultLimit: number;
+  language: Language;
+  themeMode: ThemeMode;
 };
 
 export type DayClosing = {
@@ -76,33 +105,57 @@ export type Period = 'today' | 'week' | 'month';
 
 export const CATEGORIES: Category[] = ['Lahat', 'Inumin', 'Snacks', 'De Lata', 'Gamit'];
 
-export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
-  cash: 'Cash',
-  gcash: 'GCash',
-  utang: 'Utang',
-};
-
 export const SEED_PRODUCTS: Product[] = [
-  { id: '1', name: 'Coke 290ml', price: 20, cost: 16, stock: 24, min: 10, category: 'Inumin' },
-  { id: '2', name: 'Royal 290ml', price: 20, cost: 16, stock: 18, min: 10, category: 'Inumin' },
-  { id: '3', name: 'Kopiko 3in1', price: 10, cost: 7.5, stock: 40, min: 20, category: 'Inumin' },
-  { id: '4', name: 'Nescafe Classic', price: 8, cost: 6, stock: 3, min: 20, category: 'Inumin' },
-  { id: '5', name: 'Piattos', price: 18, cost: 14, stock: 12, min: 20, category: 'Snacks' },
-  { id: '6', name: 'Nova', price: 18, cost: 14, stock: 9, min: 15, category: 'Snacks' },
-  { id: '7', name: 'Skyflakes', price: 9, cost: 7, stock: 30, min: 15, category: 'Snacks' },
-  { id: '8', name: 'Century Tuna', price: 38, cost: 32, stock: 2, min: 10, category: 'De Lata' },
-  { id: '9', name: 'Argentina Corned Beef', price: 42, cost: 35, stock: 10, min: 8, category: 'De Lata' },
-  { id: '10', name: 'Ligo Sardinas', price: 26, cost: 21, stock: 15, min: 10, category: 'De Lata' },
-  { id: '11', name: 'Safeguard Sabon', price: 35, cost: 29, stock: 4, min: 10, category: 'Gamit' },
-  { id: '12', name: 'Surf Sachet', price: 12, cost: 9.5, stock: 50, min: 20, category: 'Gamit' },
+  { id: '1', name: 'Coke 290ml', price: 20, cost: 16, stock: 24, min: 10, unit: 'bote', category: 'Inumin' },
+  { id: '2', name: 'Royal 290ml', price: 20, cost: 16, stock: 18, min: 10, unit: 'bote', category: 'Inumin' },
+  {
+    id: '3', name: 'Kopiko 3in1', price: 10, cost: 7.5, stock: 40, min: 20, unit: 'sachet',
+    pack: { name: 'tali', size: 10, price: 95 }, category: 'Inumin',
+  },
+  {
+    id: '4', name: 'Nescafe Classic', price: 8, cost: 6, stock: 3, min: 20, unit: 'sachet',
+    pack: { name: 'tali', size: 12, price: 90 }, category: 'Inumin',
+  },
+  { id: '5', name: 'Piattos', price: 18, cost: 14, stock: 12, min: 20, unit: 'pack', category: 'Snacks' },
+  { id: '6', name: 'Nova', price: 18, cost: 14, stock: 9, min: 15, unit: 'pack', category: 'Snacks' },
+  {
+    id: '7', name: 'Skyflakes', price: 9, cost: 7, stock: 30, min: 15, unit: 'pack',
+    pack: { name: 'box', size: 10, price: 85 }, category: 'Snacks',
+  },
+  { id: '8', name: 'Century Tuna', price: 38, cost: 32, stock: 2, min: 10, unit: 'lata', category: 'De Lata' },
+  { id: '9', name: 'Argentina Corned Beef', price: 42, cost: 35, stock: 10, min: 8, unit: 'lata', category: 'De Lata' },
+  { id: '10', name: 'Ligo Sardinas', price: 26, cost: 21, stock: 15, min: 10, unit: 'lata', category: 'De Lata' },
+  { id: '11', name: 'Safeguard Sabon', price: 35, cost: 29, stock: 4, min: 10, unit: 'bar', category: 'Gamit' },
+  {
+    id: '12', name: 'Surf Sachet', price: 12, cost: 9.5, stock: 50, min: 20, unit: 'sachet',
+    pack: { name: 'tali', size: 6, price: 68 }, category: 'Gamit',
+  },
 ];
 
 export const DEFAULT_SETTINGS: Settings = {
   storeName: '',
   ownerName: '',
+  ownerPhone: '',
+  storeAddress: '',
   gcashNumber: '',
   defaultLimit: 2000,
+  language: 'fil',
+  themeMode: 'system',
 };
+
+export function saleItem(p: Product, unit: SellUnit, qty: number): SaleItem {
+  const pieces = unit === 'pack' && p.pack ? p.pack.size : 1;
+  return {
+    productId: p.id,
+    name: p.name,
+    unit,
+    unitName: unit === 'pack' && p.pack ? p.pack.name : p.unit,
+    pieces,
+    price: unit === 'pack' && p.pack ? p.pack.price : p.price,
+    cost: p.cost * pieces,
+    qty,
+  };
+}
 
 function daysAgo(days: number, hour = 9) {
   const d = new Date();
@@ -178,7 +231,8 @@ export function seedSales(products: Product[]): Sale[] {
       for (let l = 0; l < lines; l++) {
         const p = products[Math.floor(rand() * products.length)];
         if (items.some((it) => it.productId === p.id)) continue;
-        items.push({ productId: p.id, name: p.name, price: p.price, cost: p.cost, qty: 1 + Math.floor(rand() * 3) });
+        const unit = p.pack && rand() < 0.25 ? 'pack' : 'tingi';
+        items.push(saleItem(p, unit, 1 + Math.floor(rand() * 3)));
       }
       const r = rand();
       const payment: PaymentMethod = r < 0.62 ? 'cash' : r < 0.85 ? 'gcash' : 'utang';
