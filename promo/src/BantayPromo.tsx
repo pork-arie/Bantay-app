@@ -72,10 +72,10 @@ const beepAt = (i: number) => SCAN_START + i * SCAN_CYCLE + SCAN_BEEP;
 const CHECKOUT_TAP = SCAN_START + SCANS.length * SCAN_CYCLE + 6;
 
 const DEFS: SceneDef[] = [
-  { min: 3.2, pad: 0.4, lines: [{ id: "hook", at: 0.3 }], render: () => <Hook /> },
-  { min: 1.9, pad: 0.35, lines: [{ id: "p1", at: 0.15 }], render: () => <Problem text="Utang lost in a notebook?" /> },
-  { min: 1.9, pad: 0.35, lines: [{ id: "p2", at: 0.15 }], render: () => <Problem text="Stock runs out without warning?" /> },
-  { min: 1.9, pad: 0.45, lines: [{ id: "p3", at: 0.15 }], render: () => <Problem text="Where did the profit go?" /> },
+  { min: 3.6, pad: 0.4, lines: [{ id: "hook", at: 0.1 }], render: () => <Hook /> },
+  { min: 1.9, pad: 0.35, lines: [{ id: "p1", at: 0.15 }], render: () => <Problem text="Utang na nakalimutan?" /> },
+  { min: 1.9, pad: 0.35, lines: [{ id: "p2", at: 0.15 }], render: () => <Problem text="Paubos na pala ang stock?" /> },
+  { min: 1.9, pad: 0.45, lines: [{ id: "p3", at: 0.15 }], render: () => <Problem text="Saan napunta ang kita?" /> },
   { min: 3, pad: 0.5, lines: [{ id: "reveal", at: 0.25 }], render: () => <Reveal /> },
   {
     min: 3,
@@ -83,15 +83,15 @@ const DEFS: SceneDef[] = [
     lines: [{ id: "sell", at: 0.3 }],
     render: () => (
       <Feature
-        tag="Sell"
-        title="Sell in seconds"
-        highlight={["seconds"]}
-        lines={["Tap to add to cart", "Tingi or by pack, tali or box"]}
+        tag="Benta"
+        title="Mabilis magbenta"
+        highlight={["Mabilis"]}
+        lines={["I-tap lang para idagdag", "Tingi o pakete, tali o kahon"]}
         screens={[<Screen key="b" src="benta.png" />]}
         callouts={[
           { icon: "🧃", text: "Tingi" },
           { icon: "📦", text: "+1 tali · ₱95" },
-          { icon: "🧾", text: "Total ₱163.00" },
+          { icon: "🧾", text: "Kabuuan ₱163.00" },
         ]}
       />
     ),
@@ -109,10 +109,10 @@ const DEFS: SceneDef[] = [
     lines: [{ id: "pay", at: 0.3 }],
     render: () => (
       <Feature
-        tag="Payments"
-        title="Cash, GCash or Utang"
+        tag="Bayad"
+        title="Cash, GCash o Utang"
         highlight={["GCash", "Utang"]}
-        lines={["Change computed for you", "Your GCash number, shown to the buyer"]}
+        lines={["Kusang kinukuwenta ang sukli", "Ipinapakita ang GCash number mo"]}
         screens={[<Screen key="g" src="gcash.png" />]}
         callouts={[
           { icon: "💵", text: "Sukli ₱37.00" },
@@ -128,15 +128,15 @@ const DEFS: SceneDef[] = [
     lines: [{ id: "receipt", at: 0.3 }],
     render: () => (
       <Feature
-        tag="Receipts"
-        title="Proof for every sale"
-        highlight={["every", "sale"]}
-        lines={["Numbered receipts to print or share", "Search any sale, any day"]}
+        tag="Resibo"
+        title="May resibo bawat benta"
+        highlight={["bawat", "benta"]}
+        lines={["I-print o i-share", "Hanapin kahit kailan"]}
         screens={[<Screen key="r" src="receipt.png" />, <Screen key="t" src="transactions.png" />]}
         callouts={[
-          { icon: "🧾", text: "Receipt #001560" },
-          { icon: "🖨️", text: "Print or share" },
-          { icon: "🔎", text: "Find it in 2 taps" },
+          { icon: "🧾", text: "Resibo #001561" },
+          { icon: "🖨️", text: "I-print o i-share" },
+          { icon: "🔎", text: "Hanapin sa 2 tap" },
         ]}
       />
     ),
@@ -148,14 +148,14 @@ const DEFS: SceneDef[] = [
     render: () => (
       <Feature
         tag="Utang"
-        title="No more lost notebook"
-        highlight={["lost", "notebook"]}
-        lines={["Every balance in one list", "Credit limits and friendly reminders"]}
+        title="Wala nang nawawalang listahan"
+        highlight={["nawawalang"]}
+        lines={["Balanse ng bawat suki", "May limit at paalala"]}
         screens={[<Screen key="u" src="utang.png" />]}
         callouts={[
-          { icon: "📒", text: "₱3,450 to collect" },
-          { icon: "🚦", text: "Over limit warning" },
-          { icon: "💬", text: "Reminder sent" },
+          { icon: "📒", text: "₱3,450 na sisingilin" },
+          { icon: "🚦", text: "Lampas sa limit!" },
+          { icon: "💬", text: "Paalala, naipadala" },
         ]}
       />
     ),
@@ -167,14 +167,14 @@ const DEFS: SceneDef[] = [
     render: () => (
       <Feature
         tag="Inventory"
-        title="Know before it runs out"
-        highlight={["runs", "out"]}
-        lines={["Low-stock alerts", "A shopping list made for you"]}
+        title="Alam mo bago maubos"
+        highlight={["maubos"]}
+        lines={["Babala kapag paubos na", "Listahan ng bibilhin, handa na"]}
         screens={[<Screen key="i" src="inventory.png" />]}
         callouts={[
-          { icon: "⚠️", text: "5 items running low" },
-          { icon: "🛒", text: "Shopping list ready" },
-          { icon: "📈", text: "Lasts ~3 more days" },
+          { icon: "⚠️", text: "5 paubos na" },
+          { icon: "🛒", text: "Listahan ng bibilhin" },
+          { icon: "📈", text: "~3 araw na lang" },
         ]}
       />
     ),
@@ -187,14 +187,14 @@ const DEFS: SceneDef[] = [
     render: () => (
       <Feature
         tag="Bantay mode"
-        title="Your staff, watched over"
-        highlight={["watched", "over"]}
-        lines={["Each staff member has their own PIN", "Every sale and void is logged"]}
+        title="Bantay sa mga tauhan"
+        highlight={["tauhan"]}
+        lines={["Sariling PIN bawat tauhan", "Naka-log ang bawat benta at void"]}
         screens={[<Screen key="l" src="lock.png" />, <Screen key="a" src="activity.png" />]}
         callouts={[
-          { icon: "🔐", text: "Staff PIN" },
-          { icon: "👀", text: "Juan sold #001560" },
-          { icon: "🛑", text: "Voids need owner PIN" },
+          { icon: "🔐", text: "PIN ng staff" },
+          { icon: "👀", text: "Benta ni Juan #001562" },
+          { icon: "🛑", text: "Void? PIN ng may-ari" },
         ]}
       />
     ),
@@ -226,7 +226,9 @@ export const BantayPromo = () => (
     <Background />
     {SCENES.map((scene) => (
       <Sequence key={scene.from} from={scene.from} durationInFrames={scene.duration}>
-        <SceneFade duration={scene.duration}>{scene.render()}</SceneFade>
+        <SceneFade duration={scene.duration} fadeIn={scene.from > 0}>
+          {scene.render()}
+        </SceneFade>
         {scene.lines.map((line) => (
           <Sequence key={line.id} from={sec(line.at)}>
             <Audio src={staticFile(`voice/${line.id}.wav`)} />
@@ -285,9 +287,10 @@ function Background() {
   );
 }
 
-function SceneFade({ duration, children }: { duration: number; children: ReactNode }) {
+function SceneFade({ duration, children, fadeIn = true }: { duration: number; children: ReactNode; fadeIn?: boolean }) {
   const frame = useCurrentFrame();
-  const opacity = interpolate(frame, [0, 6, duration - 6, duration], [0, 1, 1, 0], clamp);
+  // The first scene starts fully visible: feeds show frame 0 as the thumbnail.
+  const opacity = interpolate(frame, [0, fadeIn ? 6 : 0.01, duration - 6, duration], [fadeIn ? 0 : 1, 1, 1, 0], clamp);
   const scale = interpolate(frame, [duration - 8, duration], [1, 1.06], clamp);
   return <AbsoluteFill style={{ opacity, transform: `scale(${scale})` }}>{children}</AbsoluteFill>;
 }
@@ -542,18 +545,67 @@ function PhoneStage({
 
 // ---------- Scenes ----------
 
+/** Opening: a loss that grabs attention in the first second. */
 function Hook() {
   const landscape = useLandscape();
   const frame = useCurrentFrame();
-  const size = landscape ? 150 : 140;
+  const { fps, width, height } = useVideoConfig();
+  const slam = (delay: number) => spring({ frame: frame - delay, fps, config: { damping: 12, stiffness: 220, mass: 0.5 } });
+  const line1 = slam(0);
+  const line2 = slam(4);
+  const lost = interpolate(frame, [16, 58], [0, 3450], clamp);
+  const eased = 3450 * (1 - Math.pow(1 - lost / 3450, 3));
+  const done = frame >= 58;
+  const shake = frame >= 58 && frame < 68 ? Math.sin(frame * 3.3) * 14 : 0;
+  const counterPop = 0.85 + 0.15 * spring({ frame: frame - 12, fps, config: { damping: 10, stiffness: 160 } });
+  const size = landscape ? 138 : 128;
+  const RED: CSSProperties = {
+    background: "linear-gradient(90deg, #FCA5A5, #EF4444)",
+    WebkitBackgroundClip: "text",
+    backgroundClip: "text",
+    color: "transparent",
+  };
+  // Money falling from the top
+  const bills = Array.from({ length: 14 }, (_, i) => {
+    const x = ((i * 73) % 100) / 100;
+    const start = 18 + (i * 7) % 40;
+    const y = interpolate(frame - start, [0, 70], [-0.1, 1.1]);
+    return { x, y, rot: (i % 2 ? 1 : -1) * (frame - start) * 4, show: frame >= start };
+  });
   return (
-    <AbsoluteFill
-      style={{ alignItems: "center", justifyContent: "center", gap: 20, transform: `scale(${interpolate(frame, [0, 120], [1, 1.06])})`, padding: 80 }}
-    >
-      <PopWords text="Your tindahan" size={size} highlight={["tindahan"]} delay={6} />
-      <PopWords text="works hard." size={size} delay={26} />
-      <Rise delay={50} style={{ marginTop: 40 }}>
-        <div style={{ fontSize: landscape ? 64 : 60, fontWeight: 700, color: SOFT, textAlign: "center" }}>Your app should too.</div>
+    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", transform: `translateX(${shake}px)` }}>
+      <AbsoluteFill style={{ background: "radial-gradient(circle at 50% 55%, rgba(239,68,68,0.35), transparent 60%)", opacity: done ? 1 : 0.6 }} />
+      {bills.map((b, i) =>
+        b.show ? (
+          <div key={i} style={{ position: "absolute", left: b.x * width, top: b.y * height, fontSize: landscape ? 70 : 80, transform: `rotate(${b.rot}deg)`, opacity: 0.85 }}>
+            💸
+          </div>
+        ) : null,
+      )}
+      <div style={{ textAlign: "center", fontWeight: 900, color: WHITE, letterSpacing: -size * 0.03, lineHeight: 1.04, padding: "0 50px" }}>
+        <div style={{ fontSize: size * 1.08, transform: `scale(${1 + 0.12 * (1 - line1)})` }}>
+          <span style={RED}>Nalulugi</span> ka ba
+        </div>
+        <div style={{ fontSize: size, transform: `scale(${1 + 0.12 * (1 - line2)})` }}>sa tindahan mo?</div>
+      </div>
+      <div style={{ marginTop: landscape ? 40 : 70, display: "flex", flexDirection: "column", alignItems: "center", transform: `scale(${counterPop * (done ? 1.08 : 1)})` }}>
+        <div
+          style={{
+            fontSize: landscape ? 150 : 170,
+            fontWeight: 900,
+            color: "#EF4444",
+            fontVariantNumeric: "tabular-nums",
+            textShadow: "0 0 60px rgba(239,68,68,0.7)",
+          }}
+        >
+          −₱{Math.round(eased).toLocaleString("en-US")}
+        </div>
+        <div style={{ fontSize: landscape ? 40 : 44, fontWeight: 700, color: SOFT, marginTop: -6 }}>utang na hindi nasingil</div>
+      </div>
+      <Rise delay={64} style={{ marginTop: landscape ? 34 : 60 }}>
+        <div style={{ fontSize: landscape ? 52 : 56, fontWeight: 800, color: WHITE, textAlign: "center", padding: "0 60px" }}>
+          …pero hindi mo alam kung bakit? 🤔
+        </div>
       </Rise>
     </AbsoluteFill>
   );
@@ -627,12 +679,12 @@ function Reveal() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: landscape ? "flex-start" : "center" }}>
           <Rise delay={2}>
-            <div style={{ fontSize: landscape ? 56 : 54, fontWeight: 800, color: LIME, letterSpacing: 6 }}>MEET</div>
+            <div style={{ fontSize: landscape ? 56 : 54, fontWeight: 800, color: LIME, letterSpacing: 6 }}>KILALANIN ANG</div>
           </Rise>
           <PopWords text="Bantay" size={landscape ? 230 : 220} delay={6} align={landscape ? "left" : "center"} />
           <Rise delay={22}>
             <div style={{ fontSize: landscape ? 48 : 50, fontWeight: 700, color: SOFT, marginTop: 10, textAlign: landscape ? "left" : "center" }}>
-              The app that watches over your store
+              Ang app na nagbabantay sa tindahan mo
             </div>
           </Rise>
         </div>
@@ -844,7 +896,7 @@ function ScanScreen({ w }: { w: number }) {
         />
       )}
       <div style={{ position: "absolute", left: 24 * u, right: 24 * u, top: box.top + box.height + 14 * u, textAlign: "center", color: WHITE, fontSize: 13 * u, fontWeight: 600, textShadow: "0 1px 4px rgba(0,0,0,0.6)" }}>
-        Scan items one after another. Tap Done when finished.
+        Mag-scan nang sunod-sunod. Pindutin ang Tapos kapag kumpleto na.
       </div>
       <div style={{ position: "absolute", top: 16 * u, right: 16 * u, width: 36 * u, height: 36 * u, borderRadius: 18 * u, background: "rgba(0,0,0,0.5)", color: WHITE, fontSize: 18 * u, display: "flex", alignItems: "center", justifyContent: "center" }}>
         ✕
@@ -886,13 +938,13 @@ function ScanScreen({ w }: { w: number }) {
         }}
       >
         <div>
-          <div style={{ fontSize: 12 * u, color: "rgba(255,255,255,0.7)" }}>{scanned} item(s) in cart</div>
+          <div style={{ fontSize: 12 * u, color: "rgba(255,255,255,0.7)" }}>{scanned} item sa cart</div>
           <div style={{ fontSize: 22 * u, fontWeight: 900, display: "inline-block", transform: `scale(${0.85 + 0.15 * countPop})`, transformOrigin: "left center" }}>
             ₱{total}.00
           </div>
         </div>
         <div style={{ position: "relative", background: "#16A34A", borderRadius: 12 * u, padding: `${10 * u}px ${14 * u}px`, fontSize: 15 * u, fontWeight: 800 }}>
-          {scanned > 0 ? "Done — checkout" : "Done"}
+          {scanned > 0 ? "Tapos — bayaran" : "Tapos"}
           {tap > 0 && tap < 1 && (
             <div
               style={{
@@ -923,12 +975,12 @@ function ScanDemo() {
   const frame = useCurrentFrame();
   const { i, local, scanned } = scanState(frame);
   const step = i < 0 ? (scanned === SCANS.length ? 3 : -1) : local < SCAN_BEEP ? 0 : local < SCAN_BEEP + 12 ? 1 : 2;
-  const steps = ["Point at the barcode", "Beep!", "Added to cart"];
+  const steps = ["Itapat sa barcode", "Beep!", "Pasok sa cart"];
   const stageWidth = landscape ? 640 : 880;
   const screenW = stageWidth * 0.68 * 0.94;
   const text = (
     <div style={{ display: "flex", flexDirection: "column", alignItems: landscape ? "flex-start" : "center", gap: landscape ? 34 : 28 }}>
-      <FeatureText tag="Barcode scanner" title="Scan. Beep. Added." highlight={["Beep"]} lines={[]} landscape={landscape} />
+      <FeatureText tag="Barcode scanner" title="Scan. Beep. Pasok!" highlight={["Beep"]} lines={[]} landscape={landscape} />
       <div style={{ display: "flex", flexDirection: landscape ? "column" : "row", gap: 16, flexWrap: "wrap", justifyContent: "center" }}>
         {steps.map((label, k) => {
           const on = step === k || step === 3;
@@ -959,7 +1011,7 @@ function ScanDemo() {
   );
   const callouts: Callout[] = [
     ...SCANS.map((p, k) => ({ icon: "✅", text: `${p.name} +₱${p.price}`, at: beepAt(k) })),
-    { icon: "🛒", text: "Total ₱48 · checkout", at: CHECKOUT_TAP + 8 },
+    { icon: "🛒", text: "Kabuuan ₱48 · bayaran", at: CHECKOUT_TAP + 8 },
   ];
   const stage = (
     <PhoneStage screens={[<ScanScreen key="scan" w={screenW} />]} callouts={callouts} width={stageWidth} pulses={SCANS.map((_, k) => beepAt(k))} tilt={-4} />
@@ -989,9 +1041,9 @@ function Forecast() {
   const switchAt = Math.round(durationInFrames * 0.55);
   const calc = interpolate(frame, [switchAt, switchAt + 10], [0, 1], clamp);
   const cards = [
-    { label: "Next 7 days", value: 10295, delay: 26 },
-    { label: "Next 30 days", value: 44014, delay: 36 },
-    { label: "Profit (30 days)", value: 8210, delay: 46, gold: true },
+    { label: "Susunod na 7 araw", value: 10295, delay: 26 },
+    { label: "Susunod na 30 araw", value: 44014, delay: 36 },
+    { label: "Tubo (30 araw)", value: 8210, delay: 46, gold: true },
   ];
   const cardW = landscape ? 270 : 300;
   const cardRow = (
@@ -1030,11 +1082,11 @@ function Forecast() {
   );
   const text = (
     <div style={{ display: "flex", flexDirection: "column", alignItems: landscape ? "flex-start" : "center" }}>
-      <FeatureText tag="⭐ The best part" title="Bantay predicts your profit" highlight={["predicts", "profit"]} lines={[]} landscape={landscape} gold />
+      <FeatureText tag="⭐ Pinakamaganda" title="Hinuhulaan ang kita mo" highlight={["kita", "mo"]} lines={[]} landscape={landscape} gold />
       {cardRow}
       <Rise delay={switchAt} style={{ marginTop: 34 }}>
         <div style={{ fontSize: landscape ? 42 : 44, fontWeight: 700, color: SOFT, textAlign: landscape ? "left" : "center" }}>
-          <span style={{ color: GOLD, fontWeight: 900 }}>✓ </span>Profit calculator: know what you'll earn
+          <span style={{ color: GOLD, fontWeight: 900 }}>✓ </span>Kalkulador ng kita: alam mo ang kikitain
         </div>
       </Rise>
     </div>
@@ -1048,9 +1100,9 @@ function Forecast() {
     </div>,
   ];
   const callouts: Callout[] = [
-    { icon: "🔮", text: "₱44,014 next 30 days", at: 50 },
-    { icon: "📈", text: "Sales up 1.9%", at: 64 },
-    { icon: "💰", text: "You earn ₱40.00", at: switchAt + 8 },
+    { icon: "🔮", text: "₱44,014 sa 30 araw", at: 50 },
+    { icon: "📈", text: "Tumaas ng 1.9%", at: 64 },
+    { icon: "💰", text: "Kikitain mo ₱40.00", at: switchAt + 8 },
   ];
   if (landscape) {
     return (
@@ -1091,9 +1143,9 @@ function Languages() {
     <AbsoluteFill style={{ alignItems: "center" }}>
       <div style={{ marginTop: landscape ? 100 : 210, padding: "0 60px", display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
         <Rise>
-          <Tag size={landscape ? 30 : 34}>3 languages</Tag>
+          <Tag size={landscape ? 30 : 34}>3 wika</Tag>
         </Rise>
-        <PopWords text="Speaks your language" size={landscape ? 92 : 104} highlight={["your", "language"]} delay={4} />
+        <PopWords text="Marunong ng wika mo" size={landscape ? 92 : 104} highlight={["wika", "mo"]} delay={4} />
       </div>
       <div style={{ display: "flex", gap: landscape ? 90 : 30, marginTop: landscape ? 40 : 110, alignItems: "flex-start" }}>
         {items.map((it, i) => {
@@ -1139,16 +1191,16 @@ function Trust() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const tiles = [
-    { icon: "📶", title: "Works offline", text: "No Wi-Fi needed" },
-    { icon: "🔒", title: "Encrypted", text: "Data stays on your phone" },
-    { icon: "🚫", title: "No ads", text: "No account, no tracking" },
-    { icon: "💾", title: "Backup file", text: "Move to a new phone" },
-    { icon: "🎨", title: "Your style", text: "Light, dark, 8 colors" },
-    { icon: "🧾", title: "Receipts", text: "Print or share" },
+    { icon: "📶", title: "Offline", text: "Kahit walang internet" },
+    { icon: "🔒", title: "Ligtas", text: "Nasa phone mo lang ang data" },
+    { icon: "🚫", title: "Walang ads", text: "Walang account, walang tracking" },
+    { icon: "💾", title: "Backup", text: "Ilipat sa bagong phone" },
+    { icon: "🎨", title: "Kulay mo", text: "Light, dark, 8 kulay" },
+    { icon: "🧾", title: "Resibo", text: "I-print o i-share" },
   ];
   return (
     <AbsoluteFill style={{ alignItems: "center", paddingTop: landscape ? 90 : 220 }}>
-      <PopWords text="Made for every tindahan" size={landscape ? 96 : 104} highlight={["every", "tindahan"]} />
+      <PopWords text="Para sa bawat tindahan" size={landscape ? 96 : 104} highlight={["bawat", "tindahan"]} />
       <div
         style={{
           marginTop: landscape ? 70 : 110,
@@ -1217,7 +1269,7 @@ function Outro() {
             boxShadow: "0 0 70px rgba(163,230,53,0.6)",
           }}
         >
-          Download now for Android
+          I-download na sa Android
           <div
             style={{
               position: "absolute",
@@ -1231,7 +1283,7 @@ function Outro() {
         </div>
       </Rise>
       <Rise delay={38}>
-        <div style={{ fontSize: landscape ? 36 : 40, fontWeight: 700, color: SOFT }}>Offline · Private · Easy</div>
+        <div style={{ fontSize: landscape ? 36 : 40, fontWeight: 700, color: SOFT }}>Offline · Ligtas · Madali</div>
       </Rise>
     </AbsoluteFill>
   );

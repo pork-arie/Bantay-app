@@ -1,6 +1,6 @@
 # Bantay promo video
 
-A ~64-second promotional video for Bantay with a voice-over, made with [Remotion](https://www.remotion.dev),
+A ~67-second promotional video for Bantay with a Tagalog voice-over, made with [Remotion](https://www.remotion.dev),
 in two sizes:
 
 - **Vertical 1080×1920** (`BantayPromo`): Facebook Reels, TikTok, Instagram, phone screens
@@ -16,18 +16,19 @@ npm run render            # writes both videos to out/
 ## What's inside
 
 - `src/BantayPromo.tsx`: all scenes. `DEFS` is the timeline; each scene lasts as long as its voice line.
-- `public/*.png`: real screenshots of Bantay with sample data.
+- `public/*.png`: real screenshots of Bantay (in Filipino) with sample data.
 - The scanning scene (`ScanDemo`) is a step-by-step demo of how scanning works: a product comes into view,
   a red laser sweeps the barcode, it beeps, the item drops into the cart, and Done opens Bantay's real cart
   screen (`public/scan-cart.png`). The packages (`public/pkg-*.png`) are generic, with no brand logos.
 - `public/voice/*.wav` + `src/voice.json`: the voice-over, generated with the open-source
-  [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) voice (Apache-2.0). English lines use the
-  `af_heart` voice; the Filipino and Waray greetings use the Spanish `ef_dora` voice, which reads them naturally.
+  [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) voice (Apache-2.0). Kokoro has no Tagalog voice, so the
+  Tagalog script is read by the Spanish `ef_dora` voice, with words respelled to sound right. For the most
+  natural result, record a real voice over the same script and replace the files in `public/voice/`.
 - `public/beep.wav`: the scanner beep.
 
 ## Changing the voice-over
 
-1. Edit the lines in `scripts/make-voice.py` (Filipino words are spelled as they sound, e.g. "Bahn-tai", "oo-tung").
+1. Edit the lines in `scripts/make-voice.py` (see the spelling notes at the top of `LINES`).
 2. `pip install kokoro-onnx soundfile` and download `kokoro-v1.0.onnx` and `voices-v1.0.bin` from
    https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.0 into this folder.
 3. `npm run voice`, then `npm run render`. Scene timing updates automatically.
