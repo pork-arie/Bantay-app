@@ -7,6 +7,8 @@ export type Product = {
   name: string;
   price: number;
   stock: number;
+  /** Reorder point: the product counts as running low at or below this. */
+  min: number;
   category: Exclude<Category, 'Lahat'>;
 };
 
@@ -22,18 +24,18 @@ export type Transaction = {
 export const CATEGORIES: Category[] = ['Lahat', 'Inumin', 'Snacks', 'De Lata', 'Gamit'];
 
 export const PRODUCTS: Product[] = [
-  { id: '1', name: 'Coke 290ml', price: 20, stock: 24, category: 'Inumin' },
-  { id: '2', name: 'Royal 290ml', price: 20, stock: 18, category: 'Inumin' },
-  { id: '3', name: 'Kopiko 3in1', price: 10, stock: 40, category: 'Inumin' },
-  { id: '4', name: 'Nescafe Classic', price: 8, stock: 3, category: 'Inumin' },
-  { id: '5', name: 'Piattos', price: 18, stock: 12, category: 'Snacks' },
-  { id: '6', name: 'Nova', price: 18, stock: 9, category: 'Snacks' },
-  { id: '7', name: 'Skyflakes', price: 9, stock: 30, category: 'Snacks' },
-  { id: '8', name: 'Century Tuna', price: 38, stock: 2, category: 'De Lata' },
-  { id: '9', name: 'Argentina Corned Beef', price: 42, stock: 10, category: 'De Lata' },
-  { id: '10', name: 'Ligo Sardinas', price: 26, stock: 15, category: 'De Lata' },
-  { id: '11', name: 'Safeguard Sabon', price: 35, stock: 4, category: 'Gamit' },
-  { id: '12', name: 'Surf Sachet', price: 12, stock: 50, category: 'Gamit' },
+  { id: '1', name: 'Coke 290ml', price: 20, stock: 24, min: 10, category: 'Inumin' },
+  { id: '2', name: 'Royal 290ml', price: 20, stock: 18, min: 10, category: 'Inumin' },
+  { id: '3', name: 'Kopiko 3in1', price: 10, stock: 40, min: 20, category: 'Inumin' },
+  { id: '4', name: 'Nescafe Classic', price: 8, stock: 3, min: 20, category: 'Inumin' },
+  { id: '5', name: 'Piattos', price: 18, stock: 12, min: 20, category: 'Snacks' },
+  { id: '6', name: 'Nova', price: 18, stock: 9, min: 15, category: 'Snacks' },
+  { id: '7', name: 'Skyflakes', price: 9, stock: 30, min: 15, category: 'Snacks' },
+  { id: '8', name: 'Century Tuna', price: 38, stock: 2, min: 10, category: 'De Lata' },
+  { id: '9', name: 'Argentina Corned Beef', price: 42, stock: 10, min: 8, category: 'De Lata' },
+  { id: '10', name: 'Ligo Sardinas', price: 26, stock: 15, min: 10, category: 'De Lata' },
+  { id: '11', name: 'Safeguard Sabon', price: 35, stock: 4, min: 10, category: 'Gamit' },
+  { id: '12', name: 'Surf Sachet', price: 12, stock: 50, min: 20, category: 'Gamit' },
 ];
 
 export const TRANSACTIONS: Transaction[] = [
@@ -54,5 +56,8 @@ export const WEEKLY_SALES = [
   { day: 'Lin', total: 468 },
 ];
 
-export const LOW_STOCK_LIMIT = 5;
 export const TOTAL_UTANG = 3450;
+
+export function isLowStock(p: Product) {
+  return p.stock <= p.min;
+}

@@ -4,12 +4,27 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { colors, peso, radius, shadow } from "@/constants/theme";
 import {
-  LOW_STOCK_LIMIT,
   PRODUCTS,
   TOTAL_UTANG,
   TRANSACTIONS,
   WEEKLY_SALES,
+  isLowStock,
 } from "@/data/sample";
+
+const AVATAR_TINTS = [
+  { bg: "#EFE3D8", fg: "#8A5A3B" },
+  { bg: "#DDEAF2", fg: "#3E6A8A" },
+  { bg: "#E9E6D6", fg: "#6B6438" },
+];
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+}
 
 type StatCardProps = {
   label: string;
@@ -41,7 +56,10 @@ export default function Index() {
   const router = useRouter();
 
   const todaySales = TRANSACTIONS.reduce((sum, t) => sum + t.total, 0);
-  const lowStock = PRODUCTS.filter((p) => p.stock <= LOW_STOCK_LIMIT).length;
+  const lowStockItems = PRODUCTS.filter(isLowStock).sort(
+    (a, b) => a.stock / a.min - b.stock / b.min,
+  );
+  const lowStock = lowStockItems.length;
   const maxSale = Math.max(...WEEKLY_SALES.map((d) => d.total));
   const weekTotal = WEEKLY_SALES.reduce((sum, d) => sum + d.total, 0);
   const todayIndex = WEEKLY_SALES.length - 1;
@@ -140,6 +158,54 @@ export default function Index() {
             );
           })}
         </View>
+      </View>
+
+      {/* Running low */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.eyebrow}>KEEP AN EYE ON</Text>
+            <Text style={styles.sectionTitle}>Running low</Text>
+          </View>
+          <Pressable
+            onPress={() => router.navigate("/tabs/Inventory")}
+            style={({ pressed }) => [styles.lowLink, pressed && styles.pressed]}
+            hitSlop={8}
+          >
+            <Text style={styles.lowLinkText}>View all</Text>
+            <Ionicons name="arrow-forward" size={16} color={colors.red} />
+          </Pressable>
+        </View>
+
+        {lowStockItems.length === 0 ? (
+          <Text style={styles.sectionSub}>Sapat pa ang lahat ng stock.</Text>
+        ) : (
+          lowStockItems.slice(0, 3).map((p, i, list) => {
+            const tint = AVATAR_TINTS[i % AVATAR_TINTS.length];
+            return (
+              <View
+                key={p.id}
+                style={[styles.txRow, i < list.length - 1 && styles.txDivider]}
+              >
+                <View style={[styles.avatar, { backgroundColor: tint.bg }]}>
+                  <Text style={[styles.avatarText, { color: tint.fg }]}>
+                    {initials(p.name)}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.txName} numberOfLines={1}>
+                    {p.name}
+                  </Text>
+                  <Text style={styles.txMeta}>{p.category}</Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={styles.lowCount}>{p.stock} left</Text>
+                  <Text style={styles.txMeta}>of {p.min} min.</Text>
+                </View>
+              </View>
+            );
+          })
+        )}
       </View>
 
       {/* Today's activity */}
@@ -360,6 +426,39 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: colors.text,
+  },
+  eyebrow: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    color: colors.muted,
+    marginBottom: 4,
+  },
+  lowLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  lowLinkText: {
+    color: colors.red,
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  lowCount: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.red,
   },
   txBadge: {
     fontSize: 12,

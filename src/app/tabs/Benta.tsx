@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { colors, peso, radius, shadow } from "@/constants/theme";
-import { CATEGORIES, LOW_STOCK_LIMIT, PRODUCTS, type Category, type Product } from "@/data/sample";
+import { CATEGORIES, PRODUCTS, isLowStock, type Category, type Product } from "@/data/sample";
 
 type PaymentType = "cash" | "utang";
 
@@ -78,7 +78,7 @@ export default function Benta() {
   function renderProduct({ item }: { item: Product }) {
     const qty = cart[item.id] ?? 0;
     const outOfStock = item.stock === 0;
-    const lowStock = item.stock <= LOW_STOCK_LIMIT;
+    const lowStock = isLowStock(item);
 
     return (
       <Pressable
