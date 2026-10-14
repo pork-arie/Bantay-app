@@ -1,58 +1,300 @@
-// Sample data used until the app is connected to real storage.
+// Types plus the starter data the app is seeded with on first launch.
 
 export type Category = 'Lahat' | 'Inumin' | 'Snacks' | 'De Lata' | 'Gamit';
+
+/** A bigger selling unit, e.g. a "tali" of 10 sachets sold together. */
+export type Pack = {
+  name: string;
+  /** How many pieces (tingi) are in one pack. */
+  size: number;
+  price: number;
+};
 
 export type Product = {
   id: string;
   name: string;
+  /** Price of one piece (tingi). */
   price: number;
+  /** What the store paid per piece; used to compute profit (tubo). */
+  cost: number;
+  /** Stock is always counted in pieces. */
   stock: number;
+  /** Reorder point in pieces: the product counts as running low at or below this. */
+  min: number;
+  /** Name of one piece, e.g. "sachet", "bote", "lata". */
+  unit: string;
+  pack?: Pack;
+  barcode?: string;
   category: Exclude<Category, 'Lahat'>;
 };
 
-export type Transaction = {
-  id: string;
-  customer: string;
-  items: number;
-  total: number;
-  time: string;
-  type: 'cash' | 'utang';
+export type SellUnit = 'tingi' | 'pack';
+export type PaymentMethod = 'cash' | 'gcash' | 'utang';
+
+export type SaleItem = {
+  productId: string;
+  name: string;
+  unit: SellUnit;
+  /** "sachet", "tali", ... for receipts. */
+  unitName: string;
+  /** Pieces per unit sold: 1 for tingi, pack size for packs. */
+  pieces: number;
+  /** Price per unit sold. */
+  price: number;
+  /** Cost per unit sold. */
+  cost: number;
+  qty: number;
 };
+
+export type Sale = {
+  id: string;
+  /** Sequential number printed on the receipt (#000123). */
+  receiptNo?: number;
+  /** ISO timestamp. */
+  date: string;
+  items: SaleItem[];
+  total: number;
+  payment: PaymentMethod;
+  customerId?: string;
+  customerName?: string;
+  gcashRef?: string;
+  cashReceived?: number;
+  /** Who rang up the sale (owner or staff name). */
+  by?: string;
+  /** Set when the sale was cancelled; voided sales don't count in totals. */
+  voided?: { date: string; by: string; reason: string };
+};
+
+export type LedgerEntry = {
+  id: string;
+  /** ISO timestamp. */
+  date: string;
+  /** 'void' reverses the utang of a cancelled sale. */
+  type: 'utang' | 'bayad' | 'void';
+  amount: number;
+  /** How a bayad was paid. */
+  method?: 'cash' | 'gcash';
+  note?: string;
+};
+
+export type Debtor = {
+  id: string;
+  name: string;
+  phone?: string;
+  /** Credit limit; checkout warns before going over it. */
+  limit: number;
+  /** Newest first. */
+  entries: LedgerEntry[];
+};
+
+import type { Accent } from '@/constants/theme';
+
+export type Language = 'fil' | 'en' | 'war';
+export type ThemeMode = 'system' | 'light' | 'dark';
+
+export type Settings = {
+  storeName: string;
+  ownerName: string;
+  ownerPhone: string;
+  storeAddress: string;
+  gcashNumber: string;
+  defaultLimit: number;
+  language: Language;
+  themeMode: ThemeMode;
+  accent: Accent;
+  /** Owner PIN. Empty means no lock screen and no staff mode. */
+  ownerPin: string;
+};
+
+export type StaffMember = {
+  id: string;
+  name: string;
+  pin: string;
+};
+
+export type ActivityKind =
+  | 'sale'
+  | 'void'
+  | 'restock'
+  | 'product'
+  | 'utang'
+  | 'bayad'
+  | 'closing'
+  | 'backup'
+  | 'restore'
+  | 'settings'
+  | 'login'
+  | 'wipe';
+
+export type ActivityEntry = {
+  id: string;
+  date: string;
+  /** Name of the owner or staff member who did it. */
+  who: string;
+  kind: ActivityKind;
+  text: string;
+};
+
+export type DayClosing = {
+  id: string;
+  date: string;
+  expected: number;
+  counted: number;
+};
+
+export type Period = 'today' | 'week' | 'month';
 
 export const CATEGORIES: Category[] = ['Lahat', 'Inumin', 'Snacks', 'De Lata', 'Gamit'];
 
-export const PRODUCTS: Product[] = [
-  { id: '1', name: 'Coke 290ml', price: 20, stock: 24, category: 'Inumin' },
-  { id: '2', name: 'Royal 290ml', price: 20, stock: 18, category: 'Inumin' },
-  { id: '3', name: 'Kopiko 3in1', price: 10, stock: 40, category: 'Inumin' },
-  { id: '4', name: 'Nescafe Classic', price: 8, stock: 3, category: 'Inumin' },
-  { id: '5', name: 'Piattos', price: 18, stock: 12, category: 'Snacks' },
-  { id: '6', name: 'Nova', price: 18, stock: 9, category: 'Snacks' },
-  { id: '7', name: 'Skyflakes', price: 9, stock: 30, category: 'Snacks' },
-  { id: '8', name: 'Century Tuna', price: 38, stock: 2, category: 'De Lata' },
-  { id: '9', name: 'Argentina Corned Beef', price: 42, stock: 10, category: 'De Lata' },
-  { id: '10', name: 'Ligo Sardinas', price: 26, stock: 15, category: 'De Lata' },
-  { id: '11', name: 'Safeguard Sabon', price: 35, stock: 4, category: 'Gamit' },
-  { id: '12', name: 'Surf Sachet', price: 12, stock: 50, category: 'Gamit' },
+export const SEED_PRODUCTS: Product[] = [
+  { id: '1', name: 'Coke 290ml', price: 20, cost: 16, stock: 24, min: 10, unit: 'bote', category: 'Inumin' },
+  { id: '2', name: 'Royal 290ml', price: 20, cost: 16, stock: 18, min: 10, unit: 'bote', category: 'Inumin' },
+  {
+    id: '3', name: 'Kopiko 3in1', price: 10, cost: 7.5, stock: 40, min: 20, unit: 'sachet',
+    pack: { name: 'tali', size: 10, price: 95 }, category: 'Inumin',
+  },
+  {
+    id: '4', name: 'Nescafe Classic', price: 8, cost: 6, stock: 3, min: 20, unit: 'sachet',
+    pack: { name: 'tali', size: 12, price: 90 }, category: 'Inumin',
+  },
+  { id: '5', name: 'Piattos', price: 18, cost: 14, stock: 12, min: 20, unit: 'pack', category: 'Snacks' },
+  { id: '6', name: 'Nova', price: 18, cost: 14, stock: 9, min: 15, unit: 'pack', category: 'Snacks' },
+  {
+    id: '7', name: 'Skyflakes', price: 9, cost: 7, stock: 30, min: 15, unit: 'pack',
+    pack: { name: 'box', size: 10, price: 85 }, category: 'Snacks',
+  },
+  { id: '8', name: 'Century Tuna', price: 38, cost: 32, stock: 2, min: 10, unit: 'lata', category: 'De Lata' },
+  { id: '9', name: 'Argentina Corned Beef', price: 42, cost: 35, stock: 10, min: 8, unit: 'lata', category: 'De Lata' },
+  { id: '10', name: 'Ligo Sardinas', price: 26, cost: 21, stock: 15, min: 10, unit: 'lata', category: 'De Lata' },
+  { id: '11', name: 'Safeguard Sabon', price: 35, cost: 29, stock: 4, min: 10, unit: 'bar', category: 'Gamit' },
+  {
+    id: '12', name: 'Surf Sachet', price: 12, cost: 9.5, stock: 50, min: 20, unit: 'sachet',
+    pack: { name: 'tali', size: 6, price: 68 }, category: 'Gamit',
+  },
 ];
 
-export const TRANSACTIONS: Transaction[] = [
-  { id: 't1', customer: 'Walk-in', items: 3, total: 58, time: '2:45 PM', type: 'cash' },
-  { id: 't2', customer: 'Aling Nena', items: 5, total: 214, time: '1:30 PM', type: 'utang' },
-  { id: 't3', customer: 'Walk-in', items: 1, total: 20, time: '12:10 PM', type: 'cash' },
-  { id: 't4', customer: 'Mang Jose', items: 2, total: 80, time: '10:05 AM', type: 'utang' },
-  { id: 't5', customer: 'Walk-in', items: 4, total: 96, time: '8:20 AM', type: 'cash' },
-];
+export const DEFAULT_SETTINGS: Settings = {
+  storeName: '',
+  ownerName: '',
+  ownerPhone: '',
+  storeAddress: '',
+  gcashNumber: '',
+  defaultLimit: 2000,
+  language: 'en',
+  themeMode: 'light',
+  accent: 'green',
+  ownerPin: '',
+};
 
-export const WEEKLY_SALES = [
-  { day: 'Lun', total: 1240 },
-  { day: 'Mar', total: 980 },
-  { day: 'Miy', total: 1530 },
-  { day: 'Huw', total: 1120 },
-  { day: 'Biy', total: 1890 },
-  { day: 'Sab', total: 2210 },
-  { day: 'Lin', total: 468 },
-];
+export function saleItem(p: Product, unit: SellUnit, qty: number): SaleItem {
+  const pieces = unit === 'pack' && p.pack ? p.pack.size : 1;
+  return {
+    productId: p.id,
+    name: p.name,
+    unit,
+    unitName: unit === 'pack' && p.pack ? p.pack.name : p.unit,
+    pieces,
+    price: unit === 'pack' && p.pack ? p.pack.price : p.price,
+    cost: p.cost * pieces,
+    qty,
+  };
+}
 
-export const LOW_STOCK_LIMIT = 5;
-export const TOTAL_UTANG = 3450;
+function daysAgo(days: number, hour = 9) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  d.setHours(hour, 0, 0, 0);
+  return d.toISOString();
+}
+
+export function seedDebtors(): Debtor[] {
+  return [
+    {
+      id: 'd1',
+      name: 'Aling Nena',
+      phone: '0917 123 4567',
+      limit: 2000,
+      entries: [
+        { id: 'e2', date: daysAgo(2), type: 'utang', amount: 750, note: 'Bigas at de lata' },
+        { id: 'e3', date: daysAgo(6), type: 'bayad', amount: 500, method: 'gcash' },
+        { id: 'e4', date: daysAgo(12), type: 'utang', amount: 1000, note: 'Grocery' },
+      ],
+    },
+    {
+      id: 'd2',
+      name: 'Mang Jose',
+      limit: 1000,
+      entries: [
+        { id: 'e6', date: daysAgo(4), type: 'utang', amount: 360 },
+        { id: 'e7', date: daysAgo(16), type: 'utang', amount: 500 },
+      ],
+    },
+    {
+      id: 'd3',
+      name: 'Ate Liza',
+      phone: '0928 555 0192',
+      limit: 1500,
+      entries: [{ id: 'e8', date: daysAgo(9), type: 'utang', amount: 800, note: 'Gatas at diaper' }],
+    },
+    {
+      id: 'd4',
+      name: 'Kuya Ben',
+      limit: 1000,
+      entries: [
+        { id: 'e9', date: daysAgo(3), type: 'bayad', amount: 200, method: 'cash' },
+        { id: 'e10', date: daysAgo(11), type: 'utang', amount: 740 },
+      ],
+    },
+  ];
+}
+
+/**
+ * Generates ~4 months of believable past sales (busier weekends, slow growth)
+ * so Reports, History and the forecast have something to show before the
+ * store records its own.
+ */
+export function seedSales(products: Product[]): Sale[] {
+  let seed = 42;
+  const rand = () => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+
+  const sales: Sale[] = [];
+  const now = new Date();
+  for (let day = 119; day >= 0; day--) {
+    const weekday = new Date(now.getTime() - day * 86400000).getDay();
+    const weekend = weekday === 0 || weekday === 6 ? 5 : 0;
+    const growth = Math.round((119 - day) / 30);
+    const count = 6 + weekend + growth + Math.floor(rand() * 8);
+    for (let i = 0; i < count; i++) {
+      const date = new Date(now);
+      date.setDate(now.getDate() - day);
+      date.setHours(7 + Math.floor(rand() * 13), Math.floor(rand() * 60), 0, 0);
+      if (date > now) continue;
+
+      const lines = 1 + Math.floor(rand() * 3);
+      const items: SaleItem[] = [];
+      for (let l = 0; l < lines; l++) {
+        const p = products[Math.floor(rand() * products.length)];
+        if (items.some((it) => it.productId === p.id)) continue;
+        const unit = p.pack && rand() < 0.25 ? 'pack' : 'tingi';
+        items.push(saleItem(p, unit, 1 + Math.floor(rand() * 3)));
+      }
+      const r = rand();
+      const payment: PaymentMethod = r < 0.62 ? 'cash' : r < 0.85 ? 'gcash' : 'utang';
+      sales.push({
+        id: `s${day}-${i}`,
+        date: date.toISOString(),
+        items,
+        total: items.reduce((sum, it) => sum + it.price * it.qty, 0),
+        payment,
+        customerName: payment === 'utang' ? 'Aling Nena' : undefined,
+        customerId: payment === 'utang' ? 'd1' : undefined,
+      });
+    }
+  }
+  // Number receipts oldest first, then return newest first like the rest of the app.
+  sales.sort((a, b) => a.date.localeCompare(b.date)).forEach((s, i) => (s.receiptNo = i + 1));
+  return sales.reverse();
+}
