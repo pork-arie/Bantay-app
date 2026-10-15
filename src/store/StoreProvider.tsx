@@ -60,7 +60,12 @@ export type Permission =
 const STAFF_BLOCKED: Permission[] = [
   'viewProfit',
   'inventory',
-  'manageProducts', 'voidSale', 'settings', 'backup', 'activity'];
+  'manageProducts',
+  'voidSale',
+  'settings',
+  'backup',
+  'activity',
+];
 
 export type CheckoutInput = {
   cart: { productId: string; unit: SellUnit; qty: number }[];
