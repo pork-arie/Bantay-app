@@ -4,8 +4,8 @@
 // This is a starting point written for a local-only app, not legal advice.
 // Fill in DEVELOPER and CONTACT_EMAIL, and have a lawyer review before publishing.
 
-export const DEVELOPER = 'Bantay app developer';
-export const CONTACT_EMAIL = 'your-email@example.com';
+export const DEVELOPER = 'Ariel Angel Bangcale';
+export const CONTACT_EMAIL = 'bantay@gmail.com';
 export const LAST_UPDATED = 'October 15, 2026';
 
 export type LegalDoc = {
